@@ -5,7 +5,7 @@
   "description": "Desktop app to track AI service consumption with manual & automatic collection, ideal-pace tracking and skills-based connectors",
   "author": "mister-guiiug",
   "license": "MIT",
-  "main": "dist-electron/main.js",
+  "main": "dist-electron/electron/main.js",
   "scripts": {
     "dev": "vite",
     "dev:electron": "tsc -p electron/tsconfig.json && concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron .\"",

@@ -1,0 +1,92 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "npm: install",
+      "type": "shell",
+      "command": "npm install",
+      "problemMatcher": [],
+      "presentation": { "reveal": "silent", "panel": "shared", "clear": true },
+      "group": "none",
+      "detail": "Install all dependencies (no native build deps required — sql.js is pure WASM)."
+    },
+    {
+      "label": "test",
+      "type": "shell",
+      "command": "npm run test",
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true },
+      "group": { "kind": "test", "isDefault": true },
+      "detail": "Run vitest once (calc + period suite)."
+    },
+    {
+      "label": "test: watch",
+      "type": "shell",
+      "command": "npm run test:watch",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "detail": "Run vitest in watch mode."
+    },
+    {
+      "label": "typecheck",
+      "type": "shell",
+      "command": "npm run typecheck",
+      "problemMatcher": ["$tsc"],
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true },
+      "group": "build",
+      "detail": "Typecheck both the renderer and the electron tsconfig."
+    },
+    {
+      "label": "build: electron (compile main + preload)",
+      "type": "shell",
+      "command": "npx tsc -p electron/tsconfig.json",
+      "problemMatcher": ["$tsc"],
+      "presentation": { "reveal": "silent", "panel": "shared", "clear": true },
+      "detail": "Compile electron/*.ts → dist-electron/*.js. Run before launching Electron."
+    },
+    {
+      "label": "dev: vite (renderer)",
+      "type": "shell",
+      "command": "npm run dev",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "vite",
+        "pattern": [
+          { "regexp": ".", "file": 1, "location": 2, "message": 3 }
+        ],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*VITE.*",
+          "endsPattern": ".*ready in.*|.*Local:.*http.*"
+        }
+      },
+      "presentation": { "reveal": "silent", "panel": "dedicated", "group": "electron" },
+      "detail": "Start the Vite dev server on http://localhost:5173 (background)."
+    },
+    {
+      "label": "dev: electron prereqs",
+      "dependsOn": ["build: electron (compile main + preload)", "dev: vite (renderer)"],
+      "dependsOrder": "sequence",
+      "problemMatcher": [],
+      "detail": "Composite task used as preLaunchTask by the Electron debug config."
+    },
+    {
+      "label": "build: production",
+      "type": "shell",
+      "command": "npm run build",
+      "problemMatcher": ["$tsc"],
+      "group": { "kind": "build", "isDefault": true },
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true },
+      "detail": "Compile electron + bundle renderer for production (dist/, dist-electron/)."
+    },
+    {
+      "label": "package: desktop (electron-builder)",
+      "type": "shell",
+      "command": "npm run build:electron",
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true },
+      "detail": "Produce installers (NSIS / DMG / AppImage) into release/."
+    }
+  ]
+}

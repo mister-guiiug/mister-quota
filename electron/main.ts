@@ -34,7 +34,8 @@ async function createWindow(): Promise<BrowserWindow> {
     await win.loadURL(DEV_URL);
     win.webContents.openDevTools({ mode: 'detach' });
   } else {
-    await win.loadFile(path.join(__dirname, '../dist/index.html'));
+    // From dist-electron/electron/main.js → ../../dist/index.html
+    await win.loadFile(path.join(__dirname, '../../dist/index.html'));
   }
   return win;
 }

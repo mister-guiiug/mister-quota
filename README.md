@@ -33,6 +33,27 @@ Pour packager l'app de bureau (DMG / NSIS / AppImage) :
 npm run build:electron
 ```
 
+### Depuis VSCode
+
+Le dossier `.vscode/` est commité avec :
+
+- **Tâches** (`Terminal → Run Task…`) :
+  - `npm: install` — installation des dépendances
+  - `typecheck` — TypeScript renderer + main
+  - `test` / `test: watch` — vitest
+  - `build: electron (compile main + preload)` — `tsc -p electron/tsconfig.json`
+  - `dev: vite (renderer)` — Vite dev server (background)
+  - `dev: electron prereqs` — composite (compile electron puis lance Vite). Utilisée comme `preLaunchTask`.
+  - `build: production` / `package: desktop (electron-builder)`
+
+- **Run & Debug** (`F5`) :
+  - **`Electron: Main + Renderer`** *(compound — recommandé)* : compile electron, démarre Vite en arrière-plan, lance Electron avec `--remote-debugging-port=9223`, puis attache Chrome au renderer. Breakpoints fonctionnels dans `electron/*.ts` **et** `src/**/*.tsx`.
+  - **`Electron: Main`** seul — debug du process principal uniquement.
+  - **`Electron: Renderer (attach)`** seul — attache à une instance Electron déjà démarrée (port 9223).
+  - **`Vitest: current file`** / **`Vitest: all`** — debug d'un test ou de toute la suite.
+
+> Source maps activées (`electron/tsconfig.json` → `sourceMap: true`) — les breakpoints pointent sur le TS d'origine.
+
 > Le mode `npm run dev` (Vite seul, sans Electron) lance l'UI dans le navigateur avec un *preview shim* en mémoire — utile pour démonstration et pour itérer sur l'UI sans Electron.
 
 ---
