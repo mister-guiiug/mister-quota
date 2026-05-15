@@ -1,0 +1,12 @@
+node_modules/
+dist/
+dist-electron/
+release/
+*.log
+.DS_Store
+.vite/
+.env
+.env.local
+coverage/
+*.sqlite
+*.sqlite-journal
