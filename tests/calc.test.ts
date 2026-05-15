@@ -12,6 +12,8 @@ const baseAccount = (overrides: Partial<Account> = {}): Account => ({
   unit: 'tokens',
   collection: 'manual',
   tolerancePct: 3,
+  tags: [],
+  alertThresholdsPct: [80, 100],
   createdAt: '2026-05-01T00:00:00Z',
   updatedAt: '2026-05-01T00:00:00Z',
   ...overrides,

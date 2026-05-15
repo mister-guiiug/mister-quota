@@ -39,6 +39,12 @@ export interface Account {
   skillId?: string;
   skillParams?: Record<string, unknown>; // non-secret part
   tolerancePct: number; // e.g. 3 for ±3%
+  // Wave 3 additions
+  tags: string[];                 // free-form labels: 'perso', 'pro', 'client-X'
+  syncIntervalMinutes?: number;   // 0 / undefined = no scheduled sync
+  alertThresholdsPct: number[];   // e.g. [50, 80, 100] — fires once per crossing
+  lastAlertedThresholdPct?: number; // highest threshold already notified for the current period
+  lastAlertPeriodStart?: string;  // resets thresholds when this changes
   createdAt: string;
   updatedAt: string;
 }

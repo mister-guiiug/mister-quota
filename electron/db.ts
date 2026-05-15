@@ -88,6 +88,16 @@ const MIGRATIONS: Array<{ version: number; sql: string }> = [
       );
     `,
   },
+  {
+    version: 2,
+    sql: `
+      ALTER TABLE accounts ADD COLUMN tags_json TEXT NOT NULL DEFAULT '[]';
+      ALTER TABLE accounts ADD COLUMN sync_interval_minutes INTEGER;
+      ALTER TABLE accounts ADD COLUMN alert_thresholds_json TEXT NOT NULL DEFAULT '[80,100]';
+      ALTER TABLE accounts ADD COLUMN last_alerted_threshold_pct REAL;
+      ALTER TABLE accounts ADD COLUMN last_alert_period_start TEXT;
+    `,
+  },
 ];
 
 export class Storage {
@@ -166,8 +176,14 @@ export class Storage {
 
   upsertAccount(a: Account): void {
     this.db.run(
-      `INSERT INTO accounts(id,name,provider,period_rule_json,quota,unit,currency,collection,skill_id,skill_params_json,tolerance_pct,created_at,updated_at)
-       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
+      `INSERT INTO accounts(
+         id,name,provider,period_rule_json,quota,unit,currency,collection,
+         skill_id,skill_params_json,tolerance_pct,
+         tags_json,sync_interval_minutes,alert_thresholds_json,
+         last_alerted_threshold_pct,last_alert_period_start,
+         created_at,updated_at
+       )
+       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
        ON CONFLICT(id) DO UPDATE SET
          name=excluded.name,
          provider=excluded.provider,
@@ -179,12 +195,23 @@ export class Storage {
          skill_id=excluded.skill_id,
          skill_params_json=excluded.skill_params_json,
          tolerance_pct=excluded.tolerance_pct,
+         tags_json=excluded.tags_json,
+         sync_interval_minutes=excluded.sync_interval_minutes,
+         alert_thresholds_json=excluded.alert_thresholds_json,
+         last_alerted_threshold_pct=excluded.last_alerted_threshold_pct,
+         last_alert_period_start=excluded.last_alert_period_start,
          updated_at=excluded.updated_at`,
       [
         a.id, a.name, a.provider, JSON.stringify(a.periodRule), a.quota, a.unit,
         a.currency ?? null, a.collection, a.skillId ?? null,
         a.skillParams ? JSON.stringify(a.skillParams) : null,
-        a.tolerancePct, a.createdAt, a.updatedAt,
+        a.tolerancePct,
+        JSON.stringify(a.tags ?? []),
+        a.syncIntervalMinutes ?? null,
+        JSON.stringify(a.alertThresholdsPct ?? [80, 100]),
+        a.lastAlertedThresholdPct ?? null,
+        a.lastAlertPeriodStart ?? null,
+        a.createdAt, a.updatedAt,
       ],
     );
     this.flush();
@@ -285,6 +312,11 @@ function rowObjToAccount(o: Record<string, any>): Account {
     skillId: o.skill_id ?? undefined,
     skillParams: o.skill_params_json ? JSON.parse(o.skill_params_json) : undefined,
     tolerancePct: o.tolerance_pct,
+    tags: o.tags_json ? JSON.parse(o.tags_json) : [],
+    syncIntervalMinutes: o.sync_interval_minutes ?? undefined,
+    alertThresholdsPct: o.alert_thresholds_json ? JSON.parse(o.alert_thresholds_json) : [80, 100],
+    lastAlertedThresholdPct: o.last_alerted_threshold_pct ?? undefined,
+    lastAlertPeriodStart: o.last_alert_period_start ?? undefined,
     createdAt: o.created_at,
     updatedAt: o.updated_at,
   };

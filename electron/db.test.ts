@@ -22,6 +22,8 @@ function mkAccount(over: Partial<Account> = {}): Account {
     unit: over.unit ?? 'tokens',
     collection: over.collection ?? 'manual',
     tolerancePct: over.tolerancePct ?? 3,
+    tags: over.tags ?? [],
+    alertThresholdsPct: over.alertThresholdsPct ?? [80, 100],
     createdAt: '2026-05-01T00:00:00Z',
     updatedAt: '2026-05-01T00:00:00Z',
     ...over,
@@ -55,10 +57,12 @@ afterEach(() => {
 });
 
 describe('Storage — accounts', () => {
-  it('round-trips an account through upsert/get/list', () => {
-    const a = mkAccount();
+  it('round-trips an account through upsert/get/list (with tags + sync interval)', () => {
+    const a = mkAccount({ tags: ['perso', 'dev'], syncIntervalMinutes: 60, alertThresholdsPct: [50, 80, 100] });
     storage.upsertAccount(a);
-    expect(storage.getAccount(a.id)).toMatchObject({ id: 'a1', name: 'Cursor Max' });
+    const back = storage.getAccount(a.id);
+    expect(back).toMatchObject({ id: 'a1', name: 'Cursor Max', tags: ['perso', 'dev'], syncIntervalMinutes: 60 });
+    expect(back?.alertThresholdsPct).toEqual([50, 80, 100]);
     expect(storage.listAccounts()).toHaveLength(1);
   });
 
@@ -146,5 +150,19 @@ describe('Storage — persistence', () => {
     await r2.open(dir);
     expect(r2.listAccounts()).toHaveLength(1);
     r2.close();
+  });
+
+  it('migration v2 back-fills tags and alert thresholds with sensible defaults', async () => {
+    // Round-trip through close/reopen — ensures the new columns exist and
+    // the default values from the migration become readable on get.
+    storage.upsertAccount(mkAccount());
+    storage.close();
+    const r = new Storage(silent);
+    await r.open(dir);
+    const back = r.getAccount('a1');
+    expect(back?.tags).toEqual([]);
+    expect(back?.alertThresholdsPct).toEqual([80, 100]);
+    expect(back?.syncIntervalMinutes).toBeUndefined();
+    r.close();
   });
 });

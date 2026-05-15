@@ -14,6 +14,7 @@ export function Dashboard({ onOpen, onEdit }: Props): JSX.Element {
   const [sort, setSort] = useState<SortKey>('most_behind');
   const [filterProvider, setFilterProvider] = useState<string>('all');
   const [filterCollection, setFilterCollection] = useState<string>('all');
+  const [filterTag, setFilterTag] = useState<string>('all');
 
   useEffect(() => {
     let cancelled = false;
@@ -21,11 +22,17 @@ export function Dashboard({ onOpen, onEdit }: Props): JSX.Element {
     return () => { cancelled = true; };
   }, []);
 
+  const allTags = useMemo(() => {
+    if (!states) return [] as string[];
+    return Array.from(new Set(states.flatMap((s) => s.account.tags ?? []))).sort();
+  }, [states]);
+
   const filtered = useMemo(() => {
     if (!states) return null;
     let out = states;
     if (filterProvider !== 'all') out = out.filter((s) => s.account.provider === filterProvider);
     if (filterCollection !== 'all') out = out.filter((s) => s.account.collection === filterCollection);
+    if (filterTag !== 'all') out = out.filter((s) => (s.account.tags ?? []).includes(filterTag));
     const sorted = [...out];
     sorted.sort((a, b) => {
       switch (sort) {
@@ -35,7 +42,18 @@ export function Dashboard({ onOpen, onEdit }: Props): JSX.Element {
       }
     });
     return sorted;
-  }, [states, sort, filterProvider, filterCollection]);
+  }, [states, sort, filterProvider, filterCollection, filterTag]);
+
+  // Currency-budget aggregate: sum across visible currency-unit accounts.
+  const budget = useMemo(() => {
+    if (!filtered) return null;
+    const cur = filtered.filter((s) => s.account.unit === 'currency');
+    if (cur.length === 0) return null;
+    const consumed = cur.reduce((s, x) => s + x.consumed, 0);
+    const quota = cur.reduce((s, x) => s + x.account.quota, 0);
+    const ideal = cur.reduce((s, x) => s + x.idealToDate, 0);
+    return { consumed, quota, ideal, currency: cur[0].account.currency ?? 'EUR' };
+  }, [filtered]);
 
   if (!states) return <div className="empty">Chargement…</div>;
   if (states.length === 0) {
@@ -67,7 +85,25 @@ export function Dashboard({ onOpen, onEdit }: Props): JSX.Element {
           <option value="auto">Automatique</option>
           <option value="hybrid">Hybride</option>
         </select>
+        {allTags.length > 0 && (
+          <select value={filterTag} onChange={(e) => setFilterTag(e.target.value)}>
+            <option value="all">Tous les tags</option>
+            {allTags.map((t) => <option key={t} value={t}>#{t}</option>)}
+          </select>
+        )}
       </div>
+
+      {budget && (
+        <div className="card" style={{ marginBottom: 12 }}>
+          <h3 style={{ margin: 0 }}>Budget agrégé ({filtered!.filter((s) => s.account.unit === 'currency').length} comptes)</h3>
+          <div className="row" style={{ gap: 24, marginTop: 8 }}>
+            <Stat label="Quota total" value={new Intl.NumberFormat('fr-FR', { style: 'currency', currency: budget.currency }).format(budget.quota)} />
+            <Stat label="Consommé" value={new Intl.NumberFormat('fr-FR', { style: 'currency', currency: budget.currency }).format(budget.consumed)} />
+            <Stat label="Idéal à date" value={new Intl.NumberFormat('fr-FR', { style: 'currency', currency: budget.currency }).format(budget.ideal)} />
+            <Stat label="Δ vs idéal" value={new Intl.NumberFormat('fr-FR', { style: 'currency', currency: budget.currency, signDisplay: 'always' }).format(budget.consumed - budget.ideal)} />
+          </div>
+        </div>
+      )}
       <div className="grid-cards">
         {filtered!.map((s) => (
           <AccountCard key={s.account.id} state={s} onOpen={() => onOpen(s.account.id)} onEdit={() => onEdit(s.account)} />
@@ -87,7 +123,12 @@ function AccountCard({ state, onOpen, onEdit }: { state: AccountState; onOpen: (
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <div>
           <h3 style={{ cursor: 'pointer' }} onClick={onOpen}>{a.name}</h3>
-          <div className="muted" style={{ fontSize: 12 }}>{a.provider} · {a.collection}</div>
+          <div className="muted" style={{ fontSize: 12 }}>
+            {a.provider} · {a.collection}
+            {(a.tags ?? []).map((t) => (
+              <span key={t} style={{ marginLeft: 6, padding: '1px 6px', background: 'var(--bg-elev-2)', borderRadius: 4, fontSize: 10 }}>#{t}</span>
+            ))}
+          </div>
         </div>
         <span className={`status ${state.status}`}>{statusLabel(state.status)}</span>
       </div>

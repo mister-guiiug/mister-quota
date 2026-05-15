@@ -23,6 +23,9 @@ export function AccountForm({ initial, onSaved, onCancel }: Props): JSX.Element 
   );
   const [skillSecrets, setSkillSecrets] = useState<Record<string, string>>({}); // typed but never preloaded
   const [tolerancePct, setTolerancePct] = useState<number>(initial?.tolerancePct ?? 3);
+  const [tagsCsv, setTagsCsv] = useState<string>((initial?.tags ?? []).join(', '));
+  const [syncIntervalMinutes, setSyncIntervalMinutes] = useState<number>(initial?.syncIntervalMinutes ?? 0);
+  const [alertThresholdsCsv, setAlertThresholdsCsv] = useState<string>((initial?.alertThresholdsPct ?? [80, 100]).join(', '));
   const [skills, setSkills] = useState<Array<Pick<Skill, 'id' | 'label' | 'requiredSecrets' | 'requiredParams'>>>([]);
 
   useEffect(() => {
@@ -35,11 +38,23 @@ export function AccountForm({ initial, onSaved, onCancel }: Props): JSX.Element 
     e.preventDefault();
     const id = initial?.id ?? crypto.randomUUID();
     const now = new Date().toISOString();
+    const tags = tagsCsv.split(',').map((s) => s.trim()).filter(Boolean);
+    const alertThresholdsPct = alertThresholdsCsv
+      .split(',')
+      .map((s) => Number(s.trim()))
+      .filter((n) => Number.isFinite(n) && n > 0)
+      .sort((a, b) => a - b);
+
     const account: Account = {
       id, name, provider, periodRule, quota: Number(quota), unit,
       currency: unit === 'currency' ? currency : undefined,
       collection, skillId, skillParams: Object.keys(skillParams).length ? skillParams : undefined,
       tolerancePct: Number(tolerancePct),
+      tags,
+      syncIntervalMinutes: syncIntervalMinutes > 0 ? Number(syncIntervalMinutes) : undefined,
+      alertThresholdsPct: alertThresholdsPct.length ? alertThresholdsPct : [80, 100],
+      lastAlertedThresholdPct: initial?.lastAlertedThresholdPct,
+      lastAlertPeriodStart: initial?.lastAlertPeriodStart,
       createdAt: initial?.createdAt ?? now,
       updatedAt: now,
     };
@@ -114,6 +129,22 @@ export function AccountForm({ initial, onSaved, onCancel }: Props): JSX.Element 
         Tolérance (%) — zone considérée «&nbsp;dans la cible&nbsp;»
         <input type="number" min={0} max={50} step={0.5} value={tolerancePct} onChange={(e) => setTolerancePct(Number(e.target.value))} />
       </label>
+
+      <fieldset style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
+        <legend className="muted">Tags & automatismes</legend>
+        <label>
+          Tags (séparés par des virgules)
+          <input value={tagsCsv} onChange={(e) => setTagsCsv(e.target.value)} placeholder="perso, dev, client-X" />
+        </label>
+        <label>
+          Sync planifiée (minutes — 0 pour désactiver)
+          <input type="number" min={0} value={syncIntervalMinutes} onChange={(e) => setSyncIntervalMinutes(Number(e.target.value))} />
+        </label>
+        <label>
+          Seuils d&apos;alerte (% — séparés par des virgules)
+          <input value={alertThresholdsCsv} onChange={(e) => setAlertThresholdsCsv(e.target.value)} placeholder="50, 80, 100" />
+        </label>
+      </fieldset>
 
       <fieldset style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
         <legend className="muted">Skill / connecteur (optionnel)</legend>
