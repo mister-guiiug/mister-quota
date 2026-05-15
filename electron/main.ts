@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, Notification } from 'electron';
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
 import { randomUUID } from 'node:crypto';
@@ -10,6 +10,7 @@ import { computeAccountState } from '../shared/calc';
 import { evaluateAlerts } from './alerts';
 import { Scheduler } from './scheduler';
 import { buildTray, type TrayController } from './tray';
+import { setupAutoUpdater } from './updater';
 import { IPC } from '../shared/ipc';
 import type { Account, AccountState, SkillUsageReport, UsageEntry } from '../shared/types';
 
@@ -149,6 +150,12 @@ app.whenReady().then(async () => {
 
   // Initial alert pass at startup (fires for thresholds already crossed).
   evaluateAlertsForAll();
+
+  // Opt-in auto-updater (env-gated; safe no-op in dev or when not packaged).
+  setupAutoUpdater({
+    log,
+    notify: (title, body) => { if (Notification.isSupported()) new Notification({ title, body }).show(); },
+  });
 
   app.on('activate', async () => {
     if (BrowserWindow.getAllWindows().length === 0) await createWindow();

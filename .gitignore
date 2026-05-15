@@ -10,3 +10,6 @@ release/
 coverage/
 *.sqlite
 *.sqlite-journal
+playwright-report/
+test-results/
+.playwright/

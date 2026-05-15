@@ -184,12 +184,19 @@ L'architecture sépare strictement le code partagé (`shared/`) du code spécifi
 
 ## Roadmap (post-MVP)
 
-- Sync planifiée (cron in-process configurable, ex. toutes les 6 h).
-- Vue **logs des syncs** (lecture de `skill_runs`).
 - Profils de consommation idéale non-linéaires (front-load / back-load).
-- Notifications quand `paceDeltaDailyPct` sort de la tolérance.
-- Import CSV pour bootstrap d'un compte à partir d'un export portail.
+- Code-signing + GitHub Releases pour activer les mises à jour automatiques (`MISTER_QUOTA_AUTO_UPDATE=1` côté runtime ; voir `electron/updater.ts`).
+- OAuth pour Anthropic / OpenAI quand les fournisseurs publient leurs flows (`electron/skills/oauth.ts` est prêt).
 
----
+### Déjà livré (waves 1 → 6)
+
+| | |
+|---|---|
+| **Wave 1** | ESLint + Prettier, GitHub Actions CI (Node 20.x / 22.x, lint + typecheck + test + build + e2e), tests d'intégration `Storage`. |
+| **Wave 2** | Schema-versioning du `SkillUsageReport`, projection par régression linéaire (`projectedEndConsumptionRecent`, `projectedExhaustionDate`), comparaison inter-périodes (`previous`, `history`). |
+| **Wave 3** | `Account.tags`, `syncIntervalMinutes`, `alertThresholdsPct` ; migration SQLite v2 forward-only ; tag chips + budget € agrégé sur le dashboard. |
+| **Wave 4** | Store Zustand, toaster custom, `ConfirmDialog`, `ErrorBoundary`, skeletons de chargement ; remplacement de tous les `alert()` / `confirm()` natifs. |
+| **Wave 5** | Import CSV (header-detection + erreurs par ligne), évaluateur d'alertes OS Notifications avec anti-spam intra-période, scheduler par compte, tray icon avec menu trié. |
+| **Wave 6** | `fetchWithRetry` (timeout + backoff exponentiel + Retry-After), Playwright e2e en mode preview-shim, scaffolds `electron-updater` (env-gated) et `runPkceFlow`. |
 
 Licence : MIT.
