@@ -76,13 +76,16 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.computeState, (_e, accountId: string): AccountState | null => {
     const account = storage.getAccount(accountId);
     if (!account) return null;
-    const entries = storage.listEntries(accountId);
-    return computeAccountState({ account, entries });
+    const allEntries = storage.listEntries(accountId);
+    return computeAccountState({ account, entries: allEntries, historicalEntries: allEntries });
   });
 
   ipcMain.handle(IPC.computeAllStates, (): AccountState[] => {
     const accounts = storage.listAccounts();
-    return accounts.map((a) => computeAccountState({ account: a, entries: storage.listEntries(a.id) }));
+    return accounts.map((a) => {
+      const allEntries = storage.listEntries(a.id);
+      return computeAccountState({ account: a, entries: allEntries, historicalEntries: allEntries });
+    });
   });
 
   ipcMain.handle(IPC.listSkills, () => SKILLS.map(({ id, label, provider, requiredSecrets, requiredParams }) => ({

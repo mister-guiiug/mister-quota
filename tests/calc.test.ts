@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { computeAccountState, reduceConsumed } from '../shared/calc';
+import { computeAccountState, cumulativeSeries, linearRegression, reduceConsumed } from '../shared/calc';
+import { previousPeriod, resolvePeriod } from '../shared/period';
 import type { Account, UsageEntry } from '../shared/types';
 
 const baseAccount = (overrides: Partial<Account> = {}): Account => ({
@@ -185,5 +186,112 @@ describe('period resolution — anchor types', () => {
     const s = computeAccountState({ account, entries: [], now });
     expect(s.period.start.startsWith('2026-05-15')).toBe(true);
     expect(s.totalDays).toBe(14);
+  });
+});
+
+describe('cumulativeSeries + linearRegression', () => {
+  it('builds a monotonically growing series from cumulative entries', () => {
+    const e: UsageEntry[] = [
+      { id: '1', accountId: 'a', recordedAt: '2026-05-02T00:00:00Z', value: 10, mode: 'cumulative', source: 'manual' },
+      { id: '2', accountId: 'a', recordedAt: '2026-05-04T00:00:00Z', value: 30, mode: 'cumulative', source: 'manual' },
+      { id: '3', accountId: 'a', recordedAt: '2026-05-06T00:00:00Z', value: 60, mode: 'cumulative', source: 'manual' },
+    ];
+    const s = cumulativeSeries(e, '2026-05-01T00:00:00Z', '2026-05-31T00:00:00Z');
+    expect(s).toHaveLength(3);
+    expect(s.map((p) => p[1])).toEqual([10, 30, 60]);
+  });
+
+  it('linearRegression recovers a perfect line', () => {
+    const series: Array<[number, number]> = [
+      [0, 0],
+      [10, 10],
+      [20, 20],
+      [30, 30],
+    ];
+    const r = linearRegression(series);
+    expect(r).not.toBeNull();
+    expect(r!.slopePerMs).toBeCloseTo(1);
+    expect(r!.intercept).toBeCloseTo(0);
+  });
+});
+
+describe('computeAccountState — projections', () => {
+  it('projectedEndConsumptionRecent uses regression when ≥3 cumulative samples exist', () => {
+    const account = baseAccount({
+      quota: 1000,
+      periodRule: { type: 'custom', startDate: '2026-05-01T00:00:00Z', periodLengthDays: 10, timezone: 'UTC' },
+    });
+    // Three readings showing accelerating consumption: 100 at day 1, 250 at day 2, 600 at day 3
+    const entries: UsageEntry[] = [
+      { id: '1', accountId: 'a1', recordedAt: '2026-05-02T00:00:00Z', value: 100, mode: 'cumulative', source: 'manual' },
+      { id: '2', accountId: 'a1', recordedAt: '2026-05-03T00:00:00Z', value: 250, mode: 'cumulative', source: 'manual' },
+      { id: '3', accountId: 'a1', recordedAt: '2026-05-04T00:00:00Z', value: 600, mode: 'cumulative', source: 'manual' },
+    ];
+    const now = new Date('2026-05-04T12:00:00Z');
+    const s = computeAccountState({ account, entries, now });
+    // Naive projection (consumed/elapsed × total) is much lower than the
+    // regression projection that captures the steepening slope.
+    expect(s.projectedEndConsumptionRecent).toBeGreaterThan(s.projectedEndConsumption);
+    expect(s.projectedExhaustionDate).not.toBeNull();
+  });
+
+  it('falls back to naive projection when fewer than 3 samples', () => {
+    const account = baseAccount({ quota: 1000 });
+    const entries: UsageEntry[] = [
+      { id: '1', accountId: 'a1', recordedAt: '2026-05-10T00:00:00Z', value: 200, mode: 'cumulative', source: 'manual' },
+    ];
+    const now = new Date('2026-05-15T00:00:00Z');
+    const s = computeAccountState({ account, entries, now });
+    expect(s.projectedEndConsumptionRecent).toBe(s.projectedEndConsumption);
+    expect(s.projectedExhaustionDate).toBeNull();
+  });
+});
+
+describe('computeAccountState — inter-period comparison', () => {
+  it('reports previous-period consumption and historical average when historicalEntries provided', () => {
+    const account = baseAccount({
+      quota: 1000,
+      periodRule: { type: 'monthly', dayOfMonth: 1, timezone: 'UTC' },
+    });
+    // Historical: 3 prior months at 200, 400, 600 cumulative each, plus current.
+    const historical: UsageEntry[] = [
+      { id: 'h1', accountId: 'a1', recordedAt: '2026-02-15T00:00:00Z', value: 200, mode: 'cumulative', source: 'manual' },
+      { id: 'h2', accountId: 'a1', recordedAt: '2026-03-15T00:00:00Z', value: 400, mode: 'cumulative', source: 'manual' },
+      { id: 'h3', accountId: 'a1', recordedAt: '2026-04-15T00:00:00Z', value: 600, mode: 'cumulative', source: 'manual' },
+    ];
+    const current: UsageEntry[] = [
+      { id: 'c1', accountId: 'a1', recordedAt: '2026-05-15T00:00:00Z', value: 500, mode: 'cumulative', source: 'manual' },
+    ];
+    const now = new Date('2026-05-16T00:00:00Z');
+    const s = computeAccountState({
+      account,
+      entries: current,
+      historicalEntries: [...historical, ...current],
+      historyWindowPeriods: 3,
+      now,
+    });
+    expect(s.previous?.consumed).toBe(600); // April was 600
+    expect(s.history?.sampleCount).toBe(3);
+    expect(s.history?.averageConsumed).toBeCloseTo((200 + 400 + 600) / 3);
+  });
+});
+
+describe('previousPeriod', () => {
+  it('weekly: returns the prior 7-day window', () => {
+    const rule = { type: 'weekly' as const, weekday: 1 as const, timezone: 'UTC' };
+    const now = new Date('2026-05-13T12:00:00Z');
+    const cur = resolvePeriod(rule, now);
+    const prev = previousPeriod(rule, cur);
+    expect(new Date(prev.end).getTime()).toBe(new Date(cur.start).getTime());
+    expect((new Date(cur.start).getTime() - new Date(prev.start).getTime()) / 86400000).toBe(7);
+  });
+
+  it('monthly: returns the prior month with same anchor day', () => {
+    const rule = { type: 'monthly' as const, dayOfMonth: 3, timezone: 'UTC' };
+    const now = new Date('2026-05-15T00:00:00Z');
+    const cur = resolvePeriod(rule, now);
+    const prev = previousPeriod(rule, cur);
+    expect(prev.start.startsWith('2026-04-03')).toBe(true);
+    expect(prev.end.startsWith('2026-05-03')).toBe(true);
   });
 });

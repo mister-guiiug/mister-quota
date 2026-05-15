@@ -81,6 +81,27 @@ export function AccountDetail({ accountId, onBack, onEdit }: Props): JSX.Element
         </div>
       </div>
 
+      {(state.previous || state.history) && (
+        <div className="card">
+          <h3>Comparaison inter-périodes</h3>
+          <div className="row" style={{ gap: 24 }}>
+            {state.previous && (
+              <>
+                <Stat label="Période précédente" value={fmtUnitForAccount(state.previous.consumed, a)} />
+                <Stat label="Δ vs période courante" value={`${state.previous.deltaVsCurrentPct >= 0 ? '+' : ''}${state.previous.deltaVsCurrentPct.toFixed(1)}%`} />
+              </>
+            )}
+            {state.history && state.history.sampleCount > 0 && (
+              <Stat label={`Moyenne ${state.history.sampleCount} dern. périodes`} value={fmtUnitForAccount(state.history.averageConsumed, a)} />
+            )}
+            {state.projectedExhaustionDate && (
+              <Stat label="Date prévue d'épuisement (régression)" value={fmtDate(state.projectedExhaustionDate)} />
+            )}
+            <Stat label="Projection fin (régression)" value={fmtUnitForAccount(state.projectedEndConsumptionRecent, a)} />
+          </div>
+        </div>
+      )}
+
       <div className="card">
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <h3>Relevés</h3>

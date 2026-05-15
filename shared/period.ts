@@ -117,6 +117,26 @@ export function periodLengthDays(period: Period): number {
   return (new Date(period.end).getTime() - new Date(period.start).getTime()) / MS_PER_DAY;
 }
 
+// Resolve the period that ends just before the given period started — i.e.
+// the user's previous billing window. Used for inter-period comparisons.
+export function previousPeriod(rule: PeriodRule, current: Period): Period {
+  // Pick a "now" that lies one millisecond before the current period starts;
+  // resolvePeriod will then compute the cycle that contains that instant.
+  const probe = new Date(new Date(current.start).getTime() - 1);
+  return resolvePeriod(rule, probe);
+}
+
+// Resolve the N periods preceding `current`, oldest first.
+export function previousNPeriods(rule: PeriodRule, current: Period, n: number): Period[] {
+  const out: Period[] = [];
+  let cur = current;
+  for (let i = 0; i < n; i++) {
+    cur = previousPeriod(rule, cur);
+    out.unshift(cur);
+  }
+  return out;
+}
+
 export function elapsedDays(period: Period, now: Date = new Date()): number {
   const start = new Date(period.start).getTime();
   const end = new Date(period.end).getTime();

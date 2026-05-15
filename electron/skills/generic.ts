@@ -14,6 +14,7 @@ export const genericManualSkill: Skill = {
   async fetch(ctx): Promise<SkillUsageReport> {
     const period = resolvePeriod(ctx.account.periodRule);
     return {
+      schemaVersion: 1,
       provider: 'other',
       accountId: ctx.account.id,
       retrievedAt: new Date().toISOString(),
@@ -22,7 +23,7 @@ export const genericManualSkill: Skill = {
         unit: ctx.account.unit,
         currency: ctx.account.currency,
         quota: ctx.account.quota,
-        consumed: 0, // caller can ignore this and rely on manual entries
+        consumed: 0,
         mode: 'cumulative',
         confidence: 'estimated',
       },

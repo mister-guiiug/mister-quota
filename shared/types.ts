@@ -80,8 +80,20 @@ export interface AccountState {
   requiredDailyAvgRemaining: number; // (quota - consumed) / remainingDays, can be Infinity / negative
   paceDeltaDaily: number;            // (consumed/elapsed) - (quota/total)
   paceDeltaDailyPct: number;         // paceDeltaDaily / theoreticalDailyAmount * 100
-  // Forward-looking: extrapolated end-of-period consumption if pace holds
-  projectedEndConsumption: number;
+  // Forward-looking
+  projectedEndConsumption: number;        // simple: observedDaily × totalDays
+  projectedEndConsumptionRecent: number;  // EWMA / linear regression over recent samples
+  projectedExhaustionDate: string | null; // when consumption is forecast to hit quota, or null
+  // Inter-period comparison
+  previous?: {
+    consumed: number;
+    quota: number;
+    deltaVsCurrentPct: number; // (consumed - prevConsumed) / prevConsumed * 100
+  };
+  history?: {
+    averageConsumed: number;   // mean over the last N periods (default 3)
+    sampleCount: number;
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -94,7 +106,12 @@ export interface SkillUsageDetail {
 }
 
 // The "format standard unique" specified in §6 of the master prompt.
+// `schemaVersion` lets us evolve the report shape without breaking older
+// `report_json` blobs already persisted in the skill_runs table.
+export const SKILL_REPORT_SCHEMA_VERSION = 1 as const;
+
 export interface SkillUsageReport {
+  schemaVersion: 1;
   provider: Provider;
   accountId: string;
   retrievedAt: string;
@@ -117,6 +134,12 @@ export interface SkillUsageReport {
     source: 'api' | 'scrape' | 'manual_import';
     reference?: string;
   };
+}
+
+export function isValidSkillReport(x: unknown): x is SkillUsageReport {
+  if (!x || typeof x !== 'object') return false;
+  const r = x as Partial<SkillUsageReport>;
+  return r.schemaVersion === SKILL_REPORT_SCHEMA_VERSION && !!r.provider && !!r.usage && typeof r.usage.consumed === 'number';
 }
 
 export interface SkillContext {

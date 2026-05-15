@@ -64,7 +64,10 @@ export function installPreviewShim(): void {
   if (window.api) return;
   seed();
   const computeAll = (): AccountState[] =>
-    accounts.map((a) => computeAccountState({ account: a, entries: entries.filter((e) => e.accountId === a.id) }));
+    accounts.map((a) => {
+      const own = entries.filter((e) => e.accountId === a.id);
+      return computeAccountState({ account: a, entries: own, historicalEntries: own });
+    });
 
   window.api = {
     listAccounts: async () => accounts,
@@ -83,7 +86,8 @@ export function installPreviewShim(): void {
     computeState: async (id) => {
       const a = accounts.find((x) => x.id === id);
       if (!a) return null;
-      return computeAccountState({ account: a, entries: entries.filter((e) => e.accountId === id) });
+      const own = entries.filter((e) => e.accountId === id);
+      return computeAccountState({ account: a, entries: own, historicalEntries: own });
     },
     computeAllStates: async () => computeAll(),
     listSkills: async () => [
