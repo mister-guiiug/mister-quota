@@ -111,7 +111,7 @@ export function AccountForm({ initial, onSaved, onCancel }: Props): JSX.Element 
       )}
 
       <label>
-        Tolérance (%) — zone considérée "dans la cible"
+        Tolérance (%) — zone considérée «&nbsp;dans la cible&nbsp;»
         <input type="number" min={0} max={50} step={0.5} value={tolerancePct} onChange={(e) => setTolerancePct(Number(e.target.value))} />
       </label>
 
@@ -120,7 +120,7 @@ export function AccountForm({ initial, onSaved, onCancel }: Props): JSX.Element 
         <label>
           Skill
           <select value={skillId ?? ''} onChange={(e) => { setSkillId(e.target.value || undefined); setSkillParams({}); setSkillSecrets({}); }}>
-            <option value="">— aucune —</option>
+            <option value="">{'— aucune —'}</option>
             {skills.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
           </select>
         </label>

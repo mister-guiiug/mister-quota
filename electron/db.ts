@@ -2,12 +2,45 @@
 // app.getPath('userData')/mister-quota.sqlite and is flushed to disk after
 // every write operation. Migrations are forward-only and idempotent.
 
-import { promises as fs } from 'node:fs';
+import { promises as fs, existsSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import initSqlJs, { type Database, type SqlJsStatic } from 'sql.js';
+
+// Resolve sql-wasm.wasm in a way that works under both Node CommonJS (Electron
+// main, compiled by tsc) and Vite/Vitest ESM contexts. The file *must* be
+// findable on disk for sql.js to mmap it.
+function resolveWasmPath(): string {
+  const candidates: string[] = [];
+  // CWD-based first (deterministic in tests and Electron when started from project root).
+  candidates.push(path.resolve(process.cwd(), 'node_modules/sql.js/dist/sql-wasm.wasm'));
+  // Then walk up from this file's location to support packaged Electron layouts
+  // where cwd is the install dir, not the source tree.
+  if (typeof __dirname !== 'undefined') {
+    let dir = __dirname;
+    for (let i = 0; i < 6; i++) {
+      candidates.push(path.join(dir, 'node_modules/sql.js/dist/sql-wasm.wasm'));
+      const parent = path.dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+  }
+  for (const p of candidates) if (existsSync(p)) return p;
+  throw new Error(`sql-wasm.wasm not found in: ${candidates.join(', ')}`);
+}
 import type { Account, UsageEntry } from '../shared/types';
 
 interface Logger { info: (msg: string) => void; error: (msg: string, err?: unknown) => void }
+
+export interface SkillRunRow {
+  id: string;
+  accountId: string;
+  skillId: string;
+  startedAt: string;
+  finishedAt?: string;
+  ok: boolean;
+  error?: string;
+  reportJson?: string;
+}
 
 const MIGRATIONS: Array<{ version: number; sql: string }> = [
   {
@@ -62,6 +95,7 @@ export class Storage {
   private dbPath!: string;
   private SQL!: SqlJsStatic;
   private log: Logger;
+  private closed = false;
 
   constructor(log: Logger) {
     this.log = log;
@@ -69,8 +103,8 @@ export class Storage {
 
   async open(userDataDir: string): Promise<void> {
     this.dbPath = path.join(userDataDir, 'mister-quota.sqlite');
-    // sql.js needs the wasm file; resolve it from node_modules so packaging picks it up.
-    const wasmDir = path.join(require.resolve('sql.js/dist/sql-wasm.wasm'), '..');
+    const wasmPath = resolveWasmPath();
+    const wasmDir = path.dirname(wasmPath);
     this.SQL = await initSqlJs({ locateFile: (f: string) => path.join(wasmDir, f) });
 
     let buffer: Buffer | null = null;
@@ -81,6 +115,7 @@ export class Storage {
     }
     this.db = buffer ? new this.SQL.Database(new Uint8Array(buffer)) : new this.SQL.Database();
     this.migrate();
+    this.db.exec('PRAGMA foreign_keys = ON;');
   }
 
   private migrate(): void {
@@ -106,8 +141,11 @@ export class Storage {
 
   private flush(): void {
     const data = this.db.export();
-    // Write synchronously enough — fs.writeFileSync via fs/promises wrapper.
-    require('node:fs').writeFileSync(this.dbPath, Buffer.from(data));
+    writeFileSync(this.dbPath, Buffer.from(data));
+    // sql.js's db.export() resets per-connection PRAGMAs (it serializes via
+    // a transient internal connection). Re-arm foreign-key enforcement so
+    // ON DELETE CASCADE keeps working after every write.
+    this.db.exec('PRAGMA foreign_keys = ON;');
   }
 
   // ── Accounts ──────────────────────────────────────────────────────────────
@@ -193,9 +231,36 @@ export class Storage {
     this.flush();
   }
 
+  listSkillRuns(opts: { accountId?: string; limit?: number } = {}): SkillRunRow[] {
+    const limit = opts.limit ?? 200;
+    const sql = opts.accountId
+      ? 'SELECT * FROM skill_runs WHERE account_id = ? ORDER BY started_at DESC LIMIT ?'
+      : 'SELECT * FROM skill_runs ORDER BY started_at DESC LIMIT ?';
+    const stmt = this.db.prepare(sql);
+    stmt.bind(opts.accountId ? [opts.accountId, limit] : [limit]);
+    const out: SkillRunRow[] = [];
+    while (stmt.step()) {
+      const o = stmt.getAsObject();
+      out.push({
+        id: o.id as string,
+        accountId: o.account_id as string,
+        skillId: o.skill_id as string,
+        startedAt: o.started_at as string,
+        finishedAt: (o.finished_at as string) ?? undefined,
+        ok: (o.ok as number) === 1,
+        error: (o.error as string) ?? undefined,
+        reportJson: (o.report_json as string) ?? undefined,
+      });
+    }
+    stmt.free();
+    return out;
+  }
+
   close(): void {
+    if (this.closed) return;
     this.flush();
     this.db.close();
+    this.closed = true;
   }
 }
 

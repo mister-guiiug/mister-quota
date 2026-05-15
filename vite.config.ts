@@ -21,6 +21,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['tests/**/*.test.ts', 'src/**/*.test.ts', 'shared/**/*.test.ts'],
+    include: ['tests/**/*.test.ts', 'src/**/*.test.ts', 'shared/**/*.test.ts', 'electron/**/*.test.ts'],
+    exclude: ['e2e/**', 'node_modules', 'dist', 'dist-electron'],
   },
 });

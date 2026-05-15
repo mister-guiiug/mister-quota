@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { Account, AccountState, EntryMode, UsageEntry } from '@shared/types';
 import { fmtDate, fmtDays, fmtPct, fmtUnitForAccount } from '../format';
 
@@ -14,15 +14,15 @@ export function AccountDetail({ accountId, onBack, onEdit }: Props): JSX.Element
   const [showAdd, setShowAdd] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
 
-  async function reload(): Promise<void> {
+  const reload = useCallback(async (): Promise<void> => {
     const [s, e] = await Promise.all([
       window.api.computeState(accountId),
       window.api.listEntries(accountId),
     ]);
     setState(s);
     setEntries(e);
-  }
-  useEffect(() => { reload(); }, [accountId]);
+  }, [accountId]);
+  useEffect(() => { reload(); }, [reload]);
 
   if (!state) return <div className="empty">Chargement…</div>;
   const a = state.account;
@@ -59,7 +59,7 @@ export function AccountDetail({ accountId, onBack, onEdit }: Props): JSX.Element
       {syncMsg && <div className="card" style={{ background: 'var(--bg-elev-2)' }}>{syncMsg}</div>}
 
       <div className="card">
-        <h3>Vue d'ensemble</h3>
+        <h3>Vue d&apos;ensemble</h3>
         <Chart state={state} />
         <div className="row" style={{ gap: 24, marginTop: 12 }}>
           <Stat label="Quota" value={fmtUnitForAccount(a.quota, a)} />

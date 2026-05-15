@@ -20,7 +20,7 @@ export const cursorSkill: Skill = {
     const apiKey = ctx.secrets.apiKey;
     if (!apiKey) throw new Error('cursor skill: missing apiKey secret');
 
-    const period = resolvePeriod(ctx.account.periodRule);
+    const _period = resolvePeriod(ctx.account.periodRule);
 
     // TODO: replace with real HTTP call to the Cursor usage endpoint.
     // Example (pseudo):

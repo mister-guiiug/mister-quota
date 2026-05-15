@@ -1,8 +1,7 @@
 // Tiny rotating file logger — keeps the last 5 files of ~1MB each in
 // userData/logs. Avoids pulling a logging dep just for this.
 
-import { promises as fs } from 'node:fs';
-import { existsSync, statSync } from 'node:fs';
+import { promises as fs, existsSync, statSync, appendFileSync, renameSync } from 'node:fs';
 import path from 'node:path';
 
 const MAX_BYTES = 1_000_000;
@@ -28,7 +27,7 @@ export class Logger {
     const line = `[${new Date().toISOString()}] ${level} ${msg}\n`;
     try {
       this.rotateIfNeeded();
-      require('node:fs').appendFileSync(this.file, line);
+      appendFileSync(this.file, line);
     } catch {
       // logger must never throw
     }
@@ -43,8 +42,8 @@ export class Logger {
     for (let i = KEEP - 1; i >= 1; i--) {
       const src = path.join(this.dir, `app.log.${i}`);
       const dst = path.join(this.dir, `app.log.${i + 1}`);
-      if (existsSync(src)) require('node:fs').renameSync(src, dst);
+      if (existsSync(src)) renameSync(src, dst);
     }
-    require('node:fs').renameSync(this.file, path.join(this.dir, 'app.log.1'));
+    renameSync(this.file, path.join(this.dir, 'app.log.1'));
   }
 }
