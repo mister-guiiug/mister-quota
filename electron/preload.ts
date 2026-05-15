@@ -15,6 +15,8 @@ const api: ApiBridge = {
   listSkills: () => ipcRenderer.invoke(IPC.listSkills),
   setSecret: (accountId, key, value) => ipcRenderer.invoke(IPC.setSecret, accountId, key, value),
   syncNow: (accountId) => ipcRenderer.invoke(IPC.syncNow, accountId),
+  listSkillRuns: (opts) => ipcRenderer.invoke(IPC.listSkillRuns, opts ?? {}),
+  importEntriesCsv: (accountId, csvText) => ipcRenderer.invoke(IPC.importEntriesCsv, accountId, csvText),
   exportData: (format) => ipcRenderer.invoke(IPC.exportData, format),
 };
 

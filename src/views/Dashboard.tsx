@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { Account, AccountState } from '@shared/types';
 import { fmtDays, fmtPct, fmtUnitForAccount } from '../format';
+import { useAppStore } from '../store';
 
 type SortKey = 'name' | 'most_behind' | 'most_ahead';
 
@@ -10,17 +11,12 @@ interface Props {
 }
 
 export function Dashboard({ onOpen, onEdit }: Props): JSX.Element {
-  const [states, setStates] = useState<AccountState[] | null>(null);
+  const states = useAppStore((s) => s.states);
+  const loading = useAppStore((s) => s.loading);
   const [sort, setSort] = useState<SortKey>('most_behind');
   const [filterProvider, setFilterProvider] = useState<string>('all');
   const [filterCollection, setFilterCollection] = useState<string>('all');
   const [filterTag, setFilterTag] = useState<string>('all');
-
-  useEffect(() => {
-    let cancelled = false;
-    window.api.computeAllStates().then((s) => { if (!cancelled) setStates(s); });
-    return () => { cancelled = true; };
-  }, []);
 
   const allTags = useMemo(() => {
     if (!states) return [] as string[];
@@ -55,7 +51,19 @@ export function Dashboard({ onOpen, onEdit }: Props): JSX.Element {
     return { consumed, quota, ideal, currency: cur[0].account.currency ?? 'EUR' };
   }, [filtered]);
 
-  if (!states) return <div className="empty">Chargement…</div>;
+  if (states == null || (loading && states.length === 0)) {
+    return (
+      <div className="grid-cards">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="card">
+            <div className="skeleton" style={{ width: '60%', marginBottom: 10 }} />
+            <div className="skeleton" style={{ height: 8, width: '100%', marginBottom: 12 }} />
+            <div className="skeleton" style={{ height: 18, width: '40%' }} />
+          </div>
+        ))}
+      </div>
+    );
+  }
   if (states.length === 0) {
     return (
       <div className="empty">

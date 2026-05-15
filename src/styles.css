@@ -86,3 +86,22 @@ table th { color: var(--fg-dim); font-weight: 500; font-size: 11px; text-transfo
 
 .muted { color: var(--fg-dim); }
 .mono { font-variant-numeric: tabular-nums; font-family: "JetBrains Mono", "SF Mono", Consolas, monospace; }
+
+/* Toaster */
+.toaster { position: fixed; right: 20px; bottom: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 1000; pointer-events: none; }
+.toast { padding: 10px 14px; border-radius: 8px; min-width: 220px; max-width: 420px; cursor: pointer; pointer-events: auto; box-shadow: 0 6px 20px rgba(0,0,0,0.4); animation: slide-in 180ms ease-out; font-size: 13px; }
+.toast.success { background: rgba(86, 198, 106, 0.18); border: 1px solid var(--good); color: var(--good); }
+.toast.error { background: rgba(239, 94, 94, 0.18); border: 1px solid var(--bad); color: var(--bad); }
+.toast.info { background: rgba(110, 168, 255, 0.18); border: 1px solid var(--accent); color: var(--accent); }
+@keyframes slide-in { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* Confirm modal */
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1100; }
+.modal { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 10px; padding: 20px; min-width: 360px; max-width: 520px; box-shadow: 0 12px 40px rgba(0,0,0,0.5); }
+.modal h3 { margin: 0 0 8px; font-size: 16px; }
+.modal p { margin: 0 0 16px; color: var(--fg-dim); }
+.primary-destructive { background: var(--bad) !important; color: white !important; }
+
+/* Loading skeleton */
+.skeleton { background: linear-gradient(90deg, var(--bg-elev) 0%, var(--bg-elev-2) 50%, var(--bg-elev) 100%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 6px; height: 12px; }
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }

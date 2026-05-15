@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { Account, AccountState, EntryMode, UsageEntry } from '@shared/types';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { Account, AccountState, EntryMode } from '@shared/types';
 import { fmtDate, fmtDays, fmtPct, fmtUnitForAccount } from '../format';
+import { useAppStore } from '../store';
+import { confirmDialog } from '../components/ConfirmDialog';
 
 interface Props {
   accountId: string;
@@ -9,30 +11,32 @@ interface Props {
 }
 
 export function AccountDetail({ accountId, onBack, onEdit }: Props): JSX.Element {
-  const [state, setState] = useState<AccountState | null>(null);
-  const [entries, setEntries] = useState<UsageEntry[]>([]);
-  const [showAdd, setShowAdd] = useState(false);
-  const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const states = useAppStore((s) => s.states);
+  const entriesMap = useAppStore((s) => s.entriesByAccount);
+  const refreshOne = useAppStore((s) => s.refreshOne);
+  const syncNow = useAppStore((s) => s.syncNow);
+  const deleteAccount = useAppStore((s) => s.deleteAccount);
 
-  const reload = useCallback(async (): Promise<void> => {
-    const [s, e] = await Promise.all([
-      window.api.computeState(accountId),
-      window.api.listEntries(accountId),
-    ]);
-    setState(s);
-    setEntries(e);
-  }, [accountId]);
+  const [showAdd, setShowAdd] = useState(false);
+
+  const state = useMemo<AccountState | null>(
+    () => states?.find((x) => x.account.id === accountId) ?? null,
+    [states, accountId],
+  );
+  const entries = entriesMap[accountId] ?? [];
+
+  const reload = useCallback(() => refreshOne(accountId), [refreshOne, accountId]);
   useEffect(() => { reload(); }, [reload]);
 
-  if (!state) return <div className="empty">Chargement…</div>;
-  const a = state.account;
-
-  async function handleSync(): Promise<void> {
-    setSyncMsg('Synchronisation…');
-    const res = await window.api.syncNow(accountId);
-    setSyncMsg(res.ok ? `Synchronisé (consommé: ${res.report?.usage.consumed ?? '?'})` : `Erreur: ${res.error}`);
-    await reload();
+  if (!state) {
+    return (
+      <div className="card">
+        <div className="skeleton" style={{ width: '40%', height: 16, marginBottom: 12 }} />
+        <div className="skeleton" style={{ width: '100%', height: 220 }} />
+      </div>
+    );
   }
+  const a = state.account;
 
   return (
     <>
@@ -42,10 +46,16 @@ export function AccountDetail({ accountId, onBack, onEdit }: Props): JSX.Element
         </div>
         <div className="row" style={{ gap: 8 }}>
           <button className="ghost" onClick={() => onEdit(a)}>Éditer</button>
-          {a.skillId && <button className="primary" onClick={handleSync}>Synchroniser maintenant</button>}
+          {a.skillId && <button className="primary" onClick={() => syncNow(accountId)}>Synchroniser maintenant</button>}
           <button className="danger" onClick={async () => {
-            if (!confirm(`Supprimer "${a.name}" et tous ses relevés ?`)) return;
-            await window.api.deleteAccount(accountId);
+            const ok = await confirmDialog({
+              title: 'Supprimer le compte ?',
+              message: `« ${a.name} » et tous ses relevés vont être supprimés définitivement.`,
+              confirmLabel: 'Supprimer',
+              destructive: true,
+            });
+            if (!ok) return;
+            await deleteAccount(accountId);
             onBack();
           }}>Supprimer</button>
         </div>
@@ -55,8 +65,6 @@ export function AccountDetail({ accountId, onBack, onEdit }: Props): JSX.Element
       <div className="muted" style={{ marginBottom: 16 }}>
         {a.provider} · {a.collection} · période {a.periodRule.type} · timezone {a.periodRule.timezone}
       </div>
-
-      {syncMsg && <div className="card" style={{ background: 'var(--bg-elev-2)' }}>{syncMsg}</div>}
 
       <div className="card">
         <h3>Vue d&apos;ensemble</h3>
@@ -123,7 +131,10 @@ export function AccountDetail({ accountId, onBack, onEdit }: Props): JSX.Element
                   <td>{e.mode}</td>
                   <td>{e.source}</td>
                   <td className="muted">{e.comment ?? ''}</td>
-                  <td><button className="danger" onClick={async () => { await window.api.deleteEntry(e.id); reload(); }}>Suppr.</button></td>
+                  <td><button className="danger" onClick={async () => {
+                    const ok = await confirmDialog({ title: 'Supprimer ce relevé ?', message: `${fmtDate(e.recordedAt)} — ${fmtUnitForAccount(e.value, a)}`, confirmLabel: 'Supprimer', destructive: true });
+                    if (ok) await useAppStore.getState().deleteEntry(e.id, a.id);
+                  }}>Suppr.</button></td>
                 </tr>
               ))}
             </tbody>
@@ -152,7 +163,7 @@ function AddEntryForm({ accountId, onAdded }: { accountId: string; onAdded: () =
   return (
     <form className="stack" onSubmit={async (e) => {
       e.preventDefault();
-      await window.api.insertEntry({
+      await useAppStore.getState().addEntry({
         id: crypto.randomUUID(), accountId,
         recordedAt: new Date(recordedAt).toISOString(),
         value: Number(value), mode, source: 'manual',

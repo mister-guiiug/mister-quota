@@ -104,6 +104,8 @@ export function installPreviewShim(): void {
     ],
     setSecret: async () => { /* no-op in preview */ },
     syncNow: async () => ({ ok: false, error: 'preview mode — no live sync' }),
+    listSkillRuns: async () => [],
+    importEntriesCsv: async () => ({ inserted: 0, errors: ['preview mode — import disabled'] }),
     exportData: async () => 'preview://export-not-available',
   };
 }

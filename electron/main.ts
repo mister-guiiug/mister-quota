@@ -10,6 +10,28 @@ import { computeAccountState } from '../shared/calc';
 import { IPC } from '../shared/ipc';
 import type { Account, AccountState, UsageEntry } from '../shared/types';
 
+// Tiny CSV line parser: handles quoted values with embedded commas and "" escape.
+function parseCsvLine(line: string): string[] {
+  const out: string[] = [];
+  let i = 0;
+  let cur = '';
+  let inQuotes = false;
+  while (i < line.length) {
+    const c = line[i];
+    if (inQuotes) {
+      if (c === '"' && line[i + 1] === '"') { cur += '"'; i += 2; continue; }
+      if (c === '"') { inQuotes = false; i++; continue; }
+      cur += c; i++;
+    } else {
+      if (c === '"') { inQuotes = true; i++; continue; }
+      if (c === ',') { out.push(cur); cur = ''; i++; continue; }
+      cur += c; i++;
+    }
+  }
+  out.push(cur);
+  return out.map((s) => s.trim());
+}
+
 const log = new Logger();
 const storage = new Storage(log);
 const secrets = new SecretsStore();
@@ -134,6 +156,55 @@ function registerIpcHandlers(): void {
       });
       return { ok: false, error: err };
     }
+  });
+
+  ipcMain.handle(IPC.listSkillRuns, (_e, opts: { accountId?: string; limit?: number } = {}) =>
+    storage.listSkillRuns(opts),
+  );
+
+  ipcMain.handle(IPC.importEntriesCsv, (_e, accountId: string, csvText: string): { inserted: number; errors: string[] } => {
+    const account = storage.getAccount(accountId);
+    if (!account) return { inserted: 0, errors: ['account not found'] };
+    const errors: string[] = [];
+    let inserted = 0;
+    const lines = csvText.split(/\r?\n/);
+    // Heuristic header detection — look for known field names.
+    const headerIdx = lines.findIndex((l) => /recorded_?at|date|timestamp/i.test(l));
+    let dateCol = 0, valueCol = 1, modeCol = 2, commentCol = 3;
+    if (headerIdx >= 0) {
+      const cols = parseCsvLine(lines[headerIdx]);
+      const idx = (re: RegExp) => cols.findIndex((c) => re.test(c));
+      dateCol = idx(/recorded_?at|date|timestamp/i);
+      valueCol = idx(/value|consumed|amount|tokens/i);
+      modeCol = idx(/mode/i);
+      commentCol = idx(/comment|note/i);
+    }
+    for (let i = (headerIdx >= 0 ? headerIdx + 1 : 0); i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line || line.startsWith('#')) continue;
+      const cols = parseCsvLine(line);
+      try {
+        const recordedAt = new Date(cols[dateCol]);
+        if (Number.isNaN(recordedAt.getTime())) throw new Error(`invalid date: ${cols[dateCol]}`);
+        const value = Number(cols[valueCol]);
+        if (!Number.isFinite(value)) throw new Error(`invalid value: ${cols[valueCol]}`);
+        const modeRaw = (modeCol >= 0 ? cols[modeCol] : 'cumulative').toLowerCase();
+        const mode = modeRaw === 'delta' ? 'delta' : 'cumulative';
+        storage.insertEntry({
+          id: randomUUID(),
+          accountId,
+          recordedAt: recordedAt.toISOString(),
+          value,
+          mode,
+          source: 'manual',
+          comment: commentCol >= 0 ? cols[commentCol] : undefined,
+        });
+        inserted++;
+      } catch (err) {
+        errors.push(`L${i + 1}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+    return { inserted, errors };
   });
 
   ipcMain.handle(IPC.exportData, async (_e, format: 'csv' | 'json'): Promise<string> => {

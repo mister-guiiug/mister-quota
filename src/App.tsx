@@ -2,27 +2,41 @@ import { useEffect, useState } from 'react';
 import { Dashboard } from './views/Dashboard';
 import { AccountForm } from './views/AccountForm';
 import { AccountDetail } from './views/AccountDetail';
+import { SyncLog } from './views/SyncLog';
+import { Toaster } from './components/Toaster';
+import { ConfirmHost } from './components/ConfirmDialog';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { useAppStore } from './store';
+import { toast } from './toast';
 import type { Account } from '@shared/types';
 
 type View =
   | { kind: 'dashboard' }
   | { kind: 'new' }
   | { kind: 'edit'; account: Account }
-  | { kind: 'detail'; accountId: string };
+  | { kind: 'detail'; accountId: string }
+  | { kind: 'syncLog' };
 
 export function App(): JSX.Element {
   const [view, setView] = useState<View>({ kind: 'dashboard' });
-  const [refreshKey, setRefreshKey] = useState(0);
-  const refresh = () => setRefreshKey((k) => k + 1);
+  const refreshAll = useAppStore((s) => s.refreshAll);
 
-  // If running in pure-browser preview (no electron preload), shim window.api
-  // so the UI renders sample data. The main process replaces this in the real app.
   useEffect(() => {
     if (typeof window !== 'undefined' && !window.api) {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      import('./previewShim').then((m) => { m.installPreviewShim(); refresh(); });
+      import('./previewShim').then((m) => { m.installPreviewShim(); refreshAll(); });
+    } else {
+      refreshAll();
     }
-  }, []);
+  }, [refreshAll]);
+
+  const handleExport = async (format: 'json' | 'csv'): Promise<void> => {
+    try {
+      const p = await window.api.exportData(format);
+      if (p) toast.success(`Exporté vers ${p}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Export échoué');
+    }
+  };
 
   return (
     <>
@@ -30,33 +44,41 @@ export function App(): JSX.Element {
         <h1>MISTER QUOTA</h1>
         <button className={view.kind === 'dashboard' ? 'active' : ''} onClick={() => setView({ kind: 'dashboard' })}>Dashboard</button>
         <button onClick={() => setView({ kind: 'new' })}>+ Nouveau compte</button>
+        <button className={view.kind === 'syncLog' ? 'active' : ''} onClick={() => setView({ kind: 'syncLog' })}>Journal des syncs</button>
         <div style={{ flex: 1 }} />
-        <button onClick={() => window.api.exportData('json').then((p) => p && alert(`Exporté: ${p}`))}>Export JSON</button>
-        <button onClick={() => window.api.exportData('csv').then((p) => p && alert(`Exporté: ${p}`))}>Export CSV</button>
+        <button onClick={() => handleExport('json')}>Export JSON</button>
+        <button onClick={() => handleExport('csv')}>Export CSV</button>
       </aside>
 
       <main className="main">
-        {view.kind === 'dashboard' && (
-          <Dashboard
-            key={refreshKey}
-            onOpen={(id) => setView({ kind: 'detail', accountId: id })}
-            onEdit={(account) => setView({ kind: 'edit', account })}
-          />
-        )}
-        {view.kind === 'new' && (
-          <AccountForm onSaved={() => { refresh(); setView({ kind: 'dashboard' }); }} onCancel={() => setView({ kind: 'dashboard' })} />
-        )}
-        {view.kind === 'edit' && (
-          <AccountForm initial={view.account} onSaved={() => { refresh(); setView({ kind: 'dashboard' }); }} onCancel={() => setView({ kind: 'dashboard' })} />
-        )}
-        {view.kind === 'detail' && (
-          <AccountDetail
-            accountId={view.accountId}
-            onBack={() => setView({ kind: 'dashboard' })}
-            onEdit={(a) => setView({ kind: 'edit', account: a })}
-          />
-        )}
+        <ErrorBoundary>
+          {view.kind === 'dashboard' && (
+            <Dashboard
+              onOpen={(id) => setView({ kind: 'detail', accountId: id })}
+              onEdit={(account) => setView({ kind: 'edit', account })}
+            />
+          )}
+          {view.kind === 'new' && (
+            <AccountForm onSaved={() => setView({ kind: 'dashboard' })} onCancel={() => setView({ kind: 'dashboard' })} />
+          )}
+          {view.kind === 'edit' && (
+            <AccountForm initial={view.account} onSaved={() => setView({ kind: 'dashboard' })} onCancel={() => setView({ kind: 'dashboard' })} />
+          )}
+          {view.kind === 'detail' && (
+            <AccountDetail
+              accountId={view.accountId}
+              onBack={() => setView({ kind: 'dashboard' })}
+              onEdit={(a) => setView({ kind: 'edit', account: a })}
+            />
+          )}
+          {view.kind === 'syncLog' && (
+            <SyncLog onBack={() => setView({ kind: 'dashboard' })} />
+          )}
+        </ErrorBoundary>
       </main>
+
+      <Toaster />
+      <ConfirmHost />
     </>
   );
 }

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Account, CollectionMethod, IsoWeekday, PeriodRule, PeriodType, Provider, Skill, Unit } from '@shared/types';
+import { useAppStore } from '../store';
+import { toast } from '../toast';
 
 interface Props {
   initial?: Account;
@@ -58,11 +60,14 @@ export function AccountForm({ initial, onSaved, onCancel }: Props): JSX.Element 
       createdAt: initial?.createdAt ?? now,
       updatedAt: now,
     };
-    await window.api.upsertAccount(account);
+    await useAppStore.getState().upsertAccount(account);
     if (selectedSkill) {
       for (const key of selectedSkill.requiredSecrets) {
         const v = skillSecrets[key];
-        if (v) await window.api.setSecret(id, key, v);
+        if (v) {
+          try { await window.api.setSecret(id, key, v); }
+          catch (err) { toast.error(`Secret ${key} non sauvegardé : ${err instanceof Error ? err.message : String(err)}`); }
+        }
       }
     }
     onSaved();

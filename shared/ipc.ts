@@ -3,6 +3,17 @@
 
 import type { Account, AccountState, Skill, SkillUsageReport, UsageEntry } from './types';
 
+export interface SkillRunRow {
+  id: string;
+  accountId: string;
+  skillId: string;
+  startedAt: string;
+  finishedAt?: string;
+  ok: boolean;
+  error?: string;
+  reportJson?: string;
+}
+
 export interface ApiBridge {
   listAccounts(): Promise<Account[]>;
   getAccount(id: string): Promise<Account | null>;
@@ -19,7 +30,9 @@ export interface ApiBridge {
   listSkills(): Promise<Array<Pick<Skill, 'id' | 'label' | 'provider' | 'requiredSecrets' | 'requiredParams'>>>;
   setSecret(accountId: string, key: string, value: string): Promise<void>;
   syncNow(accountId: string): Promise<{ ok: boolean; error?: string; report?: SkillUsageReport }>;
+  listSkillRuns(opts?: { accountId?: string; limit?: number }): Promise<SkillRunRow[]>;
 
+  importEntriesCsv(accountId: string, csvText: string): Promise<{ inserted: number; errors: string[] }>;
   exportData(format: 'csv' | 'json'): Promise<string>; // returns file path
 }
 
@@ -42,5 +55,7 @@ export const IPC = {
   listSkills: 'skills:list',
   setSecret: 'secrets:set',
   syncNow: 'skills:syncNow',
+  listSkillRuns: 'skills:runs',
+  importEntriesCsv: 'entries:importCsv',
   exportData: 'data:export',
 } as const;
