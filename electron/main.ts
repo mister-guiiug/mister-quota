@@ -7,8 +7,11 @@ import { SecretsStore } from './secrets';
 import { Logger } from './log';
 import { findSkill, SKILLS } from './skills';
 import { computeAccountState } from '../shared/calc';
+import { evaluateAlerts } from './alerts';
+import { Scheduler } from './scheduler';
+import { buildTray, type TrayController } from './tray';
 import { IPC } from '../shared/ipc';
-import type { Account, AccountState, UsageEntry } from '../shared/types';
+import type { Account, AccountState, SkillUsageReport, UsageEntry } from '../shared/types';
 
 // Tiny CSV line parser: handles quoted values with embedded commas and "" escape.
 function parseCsvLine(line: string): string[] {
@@ -35,6 +38,9 @@ function parseCsvLine(line: string): string[] {
 const log = new Logger();
 const storage = new Storage(log);
 const secrets = new SecretsStore();
+let mainWindow: BrowserWindow | null = null;
+let tray: TrayController | null = null;
+let scheduler: Scheduler | null = null;
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL ?? 'http://localhost:5173';
 const isDev = !app.isPackaged;
@@ -59,7 +65,59 @@ async function createWindow(): Promise<BrowserWindow> {
     // From dist-electron/electron/main.js → ../../dist/index.html
     await win.loadFile(path.join(__dirname, '../../dist/index.html'));
   }
+  mainWindow = win;
+  win.on('closed', () => { if (mainWindow === win) mainWindow = null; });
   return win;
+}
+
+async function runSync(accountId: string): Promise<{ ok: boolean; error?: string; report?: SkillUsageReport }> {
+  const account = storage.getAccount(accountId);
+  if (!account) return { ok: false, error: 'account not found' };
+  if (!account.skillId) return { ok: false, error: 'no skill configured' };
+  const skill = findSkill(account.skillId);
+  if (!skill) return { ok: false, error: `unknown skill: ${account.skillId}` };
+
+  const runId = randomUUID();
+  const startedAt = new Date().toISOString();
+  try {
+    const resolvedSecrets = secrets.resolveAll(account.id, skill.requiredSecrets);
+    const report = await skill.fetch({ account, secrets: resolvedSecrets });
+    const entry: UsageEntry = {
+      id: randomUUID(),
+      accountId: account.id,
+      recordedAt: report.retrievedAt,
+      value: report.usage.consumed,
+      mode: report.usage.mode,
+      source: 'skill',
+      skillRunId: runId,
+    };
+    storage.insertEntry(entry);
+    storage.recordSkillRun({
+      id: runId, accountId: account.id, skillId: skill.id, startedAt,
+      finishedAt: new Date().toISOString(), ok: true, reportJson: JSON.stringify(report),
+    });
+    // Re-evaluate alerts for this account after the new reading lands.
+    const allEntries = storage.listEntries(account.id);
+    evaluateAlerts(computeAccountState({ account, entries: allEntries, historicalEntries: allEntries }), storage, log);
+    return { ok: true, report };
+  } catch (e) {
+    const err = e instanceof Error ? e.message : String(e);
+    log.error(`syncNow failed for account=${account.id}`, e);
+    storage.recordSkillRun({
+      id: runId, accountId: account.id, skillId: skill.id, startedAt,
+      finishedAt: new Date().toISOString(), ok: false, error: err,
+    });
+    return { ok: false, error: err };
+  }
+}
+
+// Re-evaluate alerts for every account whenever computed state changes.
+function evaluateAlertsForAll(): void {
+  for (const a of storage.listAccounts()) {
+    const allEntries = storage.listEntries(a.id);
+    const state = computeAccountState({ account: a, entries: allEntries, historicalEntries: allEntries });
+    evaluateAlerts(state, storage, log);
+  }
 }
 
 app.whenReady().then(async () => {
@@ -72,28 +130,69 @@ app.whenReady().then(async () => {
   registerIpcHandlers();
 
   await createWindow();
+
+  // Tray icon: lets the app live in the background when the main window
+  // is closed (useful with scheduled syncs).
+  tray = buildTray(storage, () => mainWindow, async () => {
+    for (const a of storage.listAccounts()) {
+      if (a.skillId) await runSync(a.id);
+    }
+    tray?.refresh();
+  });
+
+  // Scheduler ticks accounts that opted into auto-sync.
+  scheduler = new Scheduler(storage, log, async (accountId) => {
+    await runSync(accountId);
+    tray?.refresh();
+  });
+  scheduler.reload();
+
+  // Initial alert pass at startup (fires for thresholds already crossed).
+  evaluateAlertsForAll();
+
   app.on('activate', async () => {
     if (BrowserWindow.getAllWindows().length === 0) await createWindow();
   });
 });
 
-app.on('window-all-closed', () => {
+// Don't quit when the window closes — the tray keeps the app alive so
+// scheduled syncs keep running in the background. Only quit when the
+// tray "Quitter" item is invoked.
+app.on('window-all-closed', () => { /* keep alive */ });
+
+app.on('before-quit', () => {
+  scheduler?.stop();
+  tray?.destroy();
   storage.close();
-  if (process.platform !== 'darwin') app.quit();
 });
 
 function registerIpcHandlers(): void {
   ipcMain.handle(IPC.listAccounts, () => storage.listAccounts());
   ipcMain.handle(IPC.getAccount, (_e, id: string) => storage.getAccount(id));
-  ipcMain.handle(IPC.upsertAccount, (_e, a: Account) => storage.upsertAccount(a));
+  ipcMain.handle(IPC.upsertAccount, (_e, a: Account) => {
+    storage.upsertAccount(a);
+    scheduler?.reload();
+    tray?.refresh();
+  });
   ipcMain.handle(IPC.deleteAccount, async (_e, id: string) => {
     storage.deleteAccount(id);
     await secrets.deleteForAccount(id);
+    scheduler?.reload();
+    tray?.refresh();
   });
 
   ipcMain.handle(IPC.listEntries, (_e, accountId: string) => storage.listEntries(accountId));
-  ipcMain.handle(IPC.insertEntry, (_e, entry: UsageEntry) => storage.insertEntry(entry));
-  ipcMain.handle(IPC.deleteEntry, (_e, id: string) => storage.deleteEntry(id));
+  ipcMain.handle(IPC.insertEntry, (_e, entry: UsageEntry) => {
+    storage.insertEntry(entry);
+    // Re-evaluate alerts after manual entries too.
+    const account = storage.getAccount(entry.accountId);
+    if (account) {
+      const all = storage.listEntries(entry.accountId);
+      evaluateAlerts(computeAccountState({ account, entries: all, historicalEntries: all }), storage, log);
+    }
+    tray?.refresh();
+  });
+  ipcMain.handle(IPC.deleteEntry, (_e, id: string) => { storage.deleteEntry(id); tray?.refresh(); });
 
   ipcMain.handle(IPC.computeState, (_e, accountId: string): AccountState | null => {
     const account = storage.getAccount(accountId);
@@ -118,45 +217,7 @@ function registerIpcHandlers(): void {
     await secrets.set(accountId, key, value);
   });
 
-  ipcMain.handle(IPC.syncNow, async (_e, accountId: string) => {
-    const account = storage.getAccount(accountId);
-    if (!account) return { ok: false, error: 'account not found' };
-    if (!account.skillId) return { ok: false, error: 'no skill configured' };
-    const skill = findSkill(account.skillId);
-    if (!skill) return { ok: false, error: `unknown skill: ${account.skillId}` };
-
-    const runId = randomUUID();
-    const startedAt = new Date().toISOString();
-    try {
-      const resolvedSecrets = secrets.resolveAll(account.id, skill.requiredSecrets);
-      const report = await skill.fetch({ account, secrets: resolvedSecrets });
-      // Persist the report as a cumulative entry so it flows through the
-      // same calc pipeline as manual entries.
-      const entry: UsageEntry = {
-        id: randomUUID(),
-        accountId: account.id,
-        recordedAt: report.retrievedAt,
-        value: report.usage.consumed,
-        mode: report.usage.mode,
-        source: 'skill',
-        skillRunId: runId,
-      };
-      storage.insertEntry(entry);
-      storage.recordSkillRun({
-        id: runId, accountId: account.id, skillId: skill.id, startedAt,
-        finishedAt: new Date().toISOString(), ok: true, reportJson: JSON.stringify(report),
-      });
-      return { ok: true, report };
-    } catch (e) {
-      const err = e instanceof Error ? e.message : String(e);
-      log.error(`syncNow failed for account=${account.id}`, e);
-      storage.recordSkillRun({
-        id: runId, accountId: account.id, skillId: skill.id, startedAt,
-        finishedAt: new Date().toISOString(), ok: false, error: err,
-      });
-      return { ok: false, error: err };
-    }
-  });
+  ipcMain.handle(IPC.syncNow, (_e, accountId: string) => runSync(accountId));
 
   ipcMain.handle(IPC.listSkillRuns, (_e, opts: { accountId?: string; limit?: number } = {}) =>
     storage.listSkillRuns(opts),

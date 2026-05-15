@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Account, AccountState, EntryMode } from '@shared/types';
 import { fmtDate, fmtDays, fmtPct, fmtUnitForAccount } from '../format';
 import { useAppStore } from '../store';
 import { confirmDialog } from '../components/ConfirmDialog';
+import { toast } from '../toast';
 
 interface Props {
   accountId: string;
@@ -113,7 +114,10 @@ export function AccountDetail({ accountId, onBack, onEdit }: Props): JSX.Element
       <div className="card">
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <h3>Relevés</h3>
-          <button className="primary" onClick={() => setShowAdd((v) => !v)}>{showAdd ? 'Annuler' : '+ Saisie manuelle'}</button>
+          <div className="row" style={{ gap: 8 }}>
+            <ImportCsvButton accountId={a.id} onImported={reload} />
+            <button className="primary" onClick={() => setShowAdd((v) => !v)}>{showAdd ? 'Annuler' : '+ Saisie manuelle'}</button>
+          </div>
         </div>
         {showAdd && <AddEntryForm accountId={accountId} onAdded={() => { setShowAdd(false); reload(); }} />}
         {entries.length === 0 ? (
@@ -190,6 +194,31 @@ function AddEntryForm({ accountId, onAdded }: { accountId: string; onAdded: () =
       </label>
       <button className="primary" type="submit">Ajouter</button>
     </form>
+  );
+}
+
+function ImportCsvButton({ accountId, onImported }: { accountId: string; onImported: () => void }): JSX.Element {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <button className="ghost" onClick={() => fileInputRef.current?.click()}>↑ Importer CSV</button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".csv,text/csv"
+        style={{ display: 'none' }}
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          const text = await file.text();
+          const res = await window.api.importEntriesCsv(accountId, text);
+          if (res.inserted > 0) toast.success(`${res.inserted} relevés importés`);
+          if (res.errors.length > 0) toast.error(`${res.errors.length} erreurs : ${res.errors.slice(0, 3).join(' · ')}${res.errors.length > 3 ? '…' : ''}`);
+          if (e.target) e.target.value = '';
+          onImported();
+        }}
+      />
+    </>
   );
 }
 
