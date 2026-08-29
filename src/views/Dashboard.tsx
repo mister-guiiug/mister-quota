@@ -32,9 +32,12 @@ export function Dashboard({ onOpen, onEdit }: Props): JSX.Element {
     const sorted = [...out];
     sorted.sort((a, b) => {
       switch (sort) {
-        case 'name': return a.account.name.localeCompare(b.account.name);
-        case 'most_behind': return b.deltaPct - a.deltaPct;
-        case 'most_ahead': return a.deltaPct - b.deltaPct;
+        case 'name':
+          return a.account.name.localeCompare(b.account.name);
+        case 'most_behind':
+          return b.deltaPct - a.deltaPct;
+        case 'most_ahead':
+          return a.deltaPct - b.deltaPct;
       }
     });
     return sorted;
@@ -96,32 +99,73 @@ export function Dashboard({ onOpen, onEdit }: Props): JSX.Element {
         {allTags.length > 0 && (
           <select value={filterTag} onChange={(e) => setFilterTag(e.target.value)}>
             <option value="all">Tous les tags</option>
-            {allTags.map((t) => <option key={t} value={t}>#{t}</option>)}
+            {allTags.map((t) => (
+              <option key={t} value={t}>
+                #{t}
+              </option>
+            ))}
           </select>
         )}
       </div>
 
       {budget && (
         <div className="card" style={{ marginBottom: 12 }}>
-          <h3 style={{ margin: 0 }}>Budget agrégé ({filtered!.filter((s) => s.account.unit === 'currency').length} comptes)</h3>
+          <h3 style={{ margin: 0 }}>
+            Budget agrégé ({filtered!.filter((s) => s.account.unit === 'currency').length} comptes)
+          </h3>
           <div className="row" style={{ gap: 24, marginTop: 8 }}>
-            <Stat label="Quota total" value={new Intl.NumberFormat('fr-FR', { style: 'currency', currency: budget.currency }).format(budget.quota)} />
-            <Stat label="Consommé" value={new Intl.NumberFormat('fr-FR', { style: 'currency', currency: budget.currency }).format(budget.consumed)} />
-            <Stat label="Idéal à date" value={new Intl.NumberFormat('fr-FR', { style: 'currency', currency: budget.currency }).format(budget.ideal)} />
-            <Stat label="Δ vs idéal" value={new Intl.NumberFormat('fr-FR', { style: 'currency', currency: budget.currency, signDisplay: 'always' }).format(budget.consumed - budget.ideal)} />
+            <Stat
+              label="Quota total"
+              value={new Intl.NumberFormat('fr-FR', { style: 'currency', currency: budget.currency }).format(
+                budget.quota,
+              )}
+            />
+            <Stat
+              label="Consommé"
+              value={new Intl.NumberFormat('fr-FR', { style: 'currency', currency: budget.currency }).format(
+                budget.consumed,
+              )}
+            />
+            <Stat
+              label="Idéal à date"
+              value={new Intl.NumberFormat('fr-FR', { style: 'currency', currency: budget.currency }).format(
+                budget.ideal,
+              )}
+            />
+            <Stat
+              label="Δ vs idéal"
+              value={new Intl.NumberFormat('fr-FR', {
+                style: 'currency',
+                currency: budget.currency,
+                signDisplay: 'always',
+              }).format(budget.consumed - budget.ideal)}
+            />
           </div>
         </div>
       )}
       <div className="grid-cards">
         {filtered!.map((s) => (
-          <AccountCard key={s.account.id} state={s} onOpen={() => onOpen(s.account.id)} onEdit={() => onEdit(s.account)} />
+          <AccountCard
+            key={s.account.id}
+            state={s}
+            onOpen={() => onOpen(s.account.id)}
+            onEdit={() => onEdit(s.account)}
+          />
         ))}
       </div>
     </>
   );
 }
 
-function AccountCard({ state, onOpen, onEdit }: { state: AccountState; onOpen: () => void; onEdit: () => void }): JSX.Element {
+function AccountCard({
+  state,
+  onOpen,
+  onEdit,
+}: {
+  state: AccountState;
+  onOpen: () => void;
+  onEdit: () => void;
+}): JSX.Element {
   const a = state.account;
   const consumedPct = a.quota > 0 ? (state.consumed / a.quota) * 100 : 0;
   const idealPct = a.quota > 0 ? (state.idealToDate / a.quota) * 100 : 0;
@@ -130,11 +174,24 @@ function AccountCard({ state, onOpen, onEdit }: { state: AccountState; onOpen: (
     <div className="card">
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <div>
-          <h3 style={{ cursor: 'pointer' }} onClick={onOpen}>{a.name}</h3>
+          <h3 style={{ cursor: 'pointer' }} onClick={onOpen}>
+            {a.name}
+          </h3>
           <div className="muted" style={{ fontSize: 12 }}>
             {a.provider} · {a.collection}
             {(a.tags ?? []).map((t) => (
-              <span key={t} style={{ marginLeft: 6, padding: '1px 6px', background: 'var(--bg-elev-2)', borderRadius: 4, fontSize: 10 }}>#{t}</span>
+              <span
+                key={t}
+                style={{
+                  marginLeft: 6,
+                  padding: '1px 6px',
+                  background: 'var(--bg-elev-2)',
+                  borderRadius: 4,
+                  fontSize: 10,
+                }}
+              >
+                #{t}
+              </span>
             ))}
           </div>
         </div>
@@ -142,23 +199,40 @@ function AccountCard({ state, onOpen, onEdit }: { state: AccountState; onOpen: (
       </div>
 
       <div className="bar" style={{ marginTop: 12 }}>
-        <div className="fill" style={{ width: `${Math.min(consumedPct, 100)}%`, background: barColor(state.status) }} />
-        <div className="ideal" style={{ left: `${Math.min(idealPct, 100)}%` }} title={`Idéal: ${idealPct.toFixed(1)}%`} />
+        <div
+          className="fill"
+          style={{ width: `${Math.min(consumedPct, 100)}%`, background: barColor(state.status) }}
+        />
+        <div
+          className="ideal"
+          style={{ left: `${Math.min(idealPct, 100)}%` }}
+          title={`Idéal: ${idealPct.toFixed(1)}%`}
+        />
       </div>
 
       <div className="row" style={{ marginTop: 12, gap: 24 }}>
         <Stat label="Consommé" value={fmtUnitForAccount(state.consumed, a)} />
         <Stat label="Idéal à date" value={fmtUnitForAccount(state.idealToDate, a)} />
-        <Stat label="Écart" value={`${state.delta >= 0 ? '+' : ''}${fmtUnitForAccount(state.delta, a)} (${fmtPct(state.deltaPct)})`} />
+        <Stat
+          label="Écart"
+          value={`${state.delta >= 0 ? '+' : ''}${fmtUnitForAccount(state.delta, a)} (${fmtPct(state.deltaPct)})`}
+        />
       </div>
       <div className="row" style={{ marginTop: 8, gap: 24 }}>
         <Stat label="% théo. / jour" value={`${state.theoreticalDailyPct.toFixed(2)}%`} />
         <Stat label="Conso théo. / jour" value={fmtUnitForAccount(state.theoreticalDailyAmount, a)} />
-        <Stat label="Requis / jour restant" value={`${fmtUnitForAccount(state.requiredDailyAvgRemaining, a)} sur ${fmtDays(state.remainingDays)}`} />
+        <Stat
+          label="Requis / jour restant"
+          value={`${fmtUnitForAccount(state.requiredDailyAvgRemaining, a)} sur ${fmtDays(state.remainingDays)}`}
+        />
       </div>
       <div className="row" style={{ marginTop: 12, gap: 8 }}>
-        <button className="ghost" onClick={onOpen}>Détail</button>
-        <button className="ghost" onClick={onEdit}>Éditer</button>
+        <button className="ghost" onClick={onOpen}>
+          Détail
+        </button>
+        <button className="ghost" onClick={onEdit}>
+          Éditer
+        </button>
       </div>
     </div>
   );
@@ -174,9 +248,25 @@ function Stat({ label, value }: { label: string; value: string }): JSX.Element {
 }
 
 function statusLabel(s: AccountState['status']): string {
-  return ({ ahead: 'En avance', on_track: 'Dans la cible', behind: 'En retard', over_quota: 'Quota dépassé', period_ended: 'Période terminée' } as const)[s];
+  return (
+    {
+      ahead: 'En avance',
+      on_track: 'Dans la cible',
+      behind: 'En retard',
+      over_quota: 'Quota dépassé',
+      period_ended: 'Période terminée',
+    } as const
+  )[s];
 }
 
 function barColor(s: AccountState['status']): string {
-  return ({ ahead: 'var(--accent)', on_track: 'var(--good)', behind: 'var(--warn)', over_quota: 'var(--bad)', period_ended: 'var(--fg-dim)' } as const)[s];
+  return (
+    {
+      ahead: 'var(--accent)',
+      on_track: 'var(--good)',
+      behind: 'var(--warn)',
+      over_quota: 'var(--bad)',
+      period_ended: 'var(--fg-dim)',
+    } as const
+  )[s];
 }

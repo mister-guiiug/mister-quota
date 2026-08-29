@@ -36,7 +36,9 @@ export function ConfirmHost(): JSX.Element | null {
     const l: Listener = (x) => setQ([...x]);
     listeners.add(l);
     l(queue);
-    return () => { listeners.delete(l); };
+    return () => {
+      listeners.delete(l);
+    };
   }, []);
   const top = q[0];
   if (!top) return null;
@@ -46,8 +48,14 @@ export function ConfirmHost(): JSX.Element | null {
         <h3>{top.title}</h3>
         <p>{top.message}</p>
         <div className="row" style={{ gap: 8, justifyContent: 'flex-end' }}>
-          <button className="ghost" onClick={() => answer(top, false)}>Annuler</button>
-          <button className={top.destructive ? 'danger primary-destructive' : 'primary'} onClick={() => answer(top, true)} autoFocus>
+          <button className="ghost" onClick={() => answer(top, false)}>
+            Annuler
+          </button>
+          <button
+            className={top.destructive ? 'danger primary-destructive' : 'primary'}
+            onClick={() => answer(top, true)}
+            autoFocus
+          >
             {top.confirmLabel ?? 'Confirmer'}
           </button>
         </div>

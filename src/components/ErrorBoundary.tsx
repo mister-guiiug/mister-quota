@@ -1,7 +1,11 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 
-interface Props { children: ReactNode }
-interface State { error: Error | null }
+interface Props {
+  children: ReactNode;
+}
+interface State {
+  error: Error | null;
+}
 
 export class ErrorBoundary extends Component<Props, State> {
   state: State = { error: null };
@@ -21,10 +25,20 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="empty">
           <h2>Une erreur est survenue</h2>
-          <pre style={{ textAlign: 'left', background: 'var(--bg-elev-2)', padding: 12, borderRadius: 6, overflow: 'auto' }}>
+          <pre
+            style={{
+              textAlign: 'left',
+              background: 'var(--bg-elev-2)',
+              padding: 12,
+              borderRadius: 6,
+              overflow: 'auto',
+            }}
+          >
             {this.state.error.message}
           </pre>
-          <button className="primary" onClick={this.reset}>Réessayer</button>
+          <button className="primary" onClick={this.reset}>
+            Réessayer
+          </button>
         </div>
       );
     }

@@ -27,7 +27,9 @@ export interface ApiBridge {
   computeState(accountId: string): Promise<AccountState | null>;
   computeAllStates(): Promise<AccountState[]>;
 
-  listSkills(): Promise<Array<Pick<Skill, 'id' | 'label' | 'provider' | 'requiredSecrets' | 'requiredParams'>>>;
+  listSkills(): Promise<
+    Array<Pick<Skill, 'id' | 'label' | 'provider' | 'requiredSecrets' | 'requiredParams'>>
+  >;
   setSecret(accountId: string, key: string, value: string): Promise<void>;
   syncNow(accountId: string): Promise<{ ok: boolean; error?: string; report?: SkillUsageReport }>;
   listSkillRuns(opts?: { accountId?: string; limit?: number }): Promise<SkillRunRow[]>;

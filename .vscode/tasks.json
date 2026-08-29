@@ -52,9 +52,7 @@
       "isBackground": true,
       "problemMatcher": {
         "owner": "vite",
-        "pattern": [
-          { "regexp": ".", "file": 1, "location": 2, "message": 3 }
-        ],
+        "pattern": [{ "regexp": ".", "file": 1, "location": 2, "message": 3 }],
         "background": {
           "activeOnStart": true,
           "beginsPattern": ".*VITE.*",

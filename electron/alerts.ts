@@ -21,7 +21,12 @@ const electronNotificationSink: AlertSink = {
   },
 };
 
-export function evaluateAlerts(state: AccountState, storage: Storage, log: Logger, sink: AlertSink = electronNotificationSink): void {
+export function evaluateAlerts(
+  state: AccountState,
+  storage: Storage,
+  log: Logger,
+  sink: AlertSink = electronNotificationSink,
+): void {
   const a = state.account;
   const consumedPct = a.quota > 0 ? (state.consumed / a.quota) * 100 : 0;
   const periodStart = state.period.start;

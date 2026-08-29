@@ -58,10 +58,19 @@ afterEach(() => {
 
 describe('Storage — accounts', () => {
   it('round-trips an account through upsert/get/list (with tags + sync interval)', () => {
-    const a = mkAccount({ tags: ['perso', 'dev'], syncIntervalMinutes: 60, alertThresholdsPct: [50, 80, 100] });
+    const a = mkAccount({
+      tags: ['perso', 'dev'],
+      syncIntervalMinutes: 60,
+      alertThresholdsPct: [50, 80, 100],
+    });
     storage.upsertAccount(a);
     const back = storage.getAccount(a.id);
-    expect(back).toMatchObject({ id: 'a1', name: 'Cursor Max', tags: ['perso', 'dev'], syncIntervalMinutes: 60 });
+    expect(back).toMatchObject({
+      id: 'a1',
+      name: 'Cursor Max',
+      tags: ['perso', 'dev'],
+      syncIntervalMinutes: 60,
+    });
     expect(back?.alertThresholdsPct).toEqual([50, 80, 100]);
     expect(storage.listAccounts()).toHaveLength(1);
   });
@@ -107,8 +116,24 @@ describe('Storage — skill runs', () => {
   beforeEach(() => storage.upsertAccount(mkAccount()));
 
   it('persists ok and error runs', () => {
-    storage.recordSkillRun({ id: 'r1', accountId: 'a1', skillId: 'cursor', startedAt: '2026-05-10T00:00:00Z', finishedAt: '2026-05-10T00:00:01Z', ok: true, reportJson: '{}' });
-    storage.recordSkillRun({ id: 'r2', accountId: 'a1', skillId: 'cursor', startedAt: '2026-05-10T00:00:02Z', finishedAt: '2026-05-10T00:00:03Z', ok: false, error: 'boom' });
+    storage.recordSkillRun({
+      id: 'r1',
+      accountId: 'a1',
+      skillId: 'cursor',
+      startedAt: '2026-05-10T00:00:00Z',
+      finishedAt: '2026-05-10T00:00:01Z',
+      ok: true,
+      reportJson: '{}',
+    });
+    storage.recordSkillRun({
+      id: 'r2',
+      accountId: 'a1',
+      skillId: 'cursor',
+      startedAt: '2026-05-10T00:00:02Z',
+      finishedAt: '2026-05-10T00:00:03Z',
+      ok: false,
+      error: 'boom',
+    });
     const runs = storage.listSkillRuns({ limit: 10 });
     expect(runs).toHaveLength(2);
     expect(runs[0].id).toBe('r2'); // newest first

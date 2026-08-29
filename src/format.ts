@@ -14,7 +14,11 @@ export function fmtUnit(value: number, unit: Unit, currency?: string): string {
     case 'credits':
       return `${COMPACT.format(value)} ${unit}`;
     case 'currency':
-      return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: currency ?? 'EUR', maximumFractionDigits: 2 }).format(value);
+      return new Intl.NumberFormat('fr-FR', {
+        style: 'currency',
+        currency: currency ?? 'EUR',
+        maximumFractionDigits: 2,
+      }).format(value);
   }
 }
 

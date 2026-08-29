@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react';
-import type { Account, CollectionMethod, IsoWeekday, PeriodRule, PeriodType, Provider, Skill, Unit } from '@shared/types';
+import type {
+  Account,
+  CollectionMethod,
+  IsoWeekday,
+  PeriodRule,
+  PeriodType,
+  Provider,
+  Skill,
+  Unit,
+} from '@shared/types';
 import { useAppStore } from '../store';
 import { toast } from '../toast';
 
@@ -27,8 +36,12 @@ export function AccountForm({ initial, onSaved, onCancel }: Props): JSX.Element 
   const [tolerancePct, setTolerancePct] = useState<number>(initial?.tolerancePct ?? 3);
   const [tagsCsv, setTagsCsv] = useState<string>((initial?.tags ?? []).join(', '));
   const [syncIntervalMinutes, setSyncIntervalMinutes] = useState<number>(initial?.syncIntervalMinutes ?? 0);
-  const [alertThresholdsCsv, setAlertThresholdsCsv] = useState<string>((initial?.alertThresholdsPct ?? [80, 100]).join(', '));
-  const [skills, setSkills] = useState<Array<Pick<Skill, 'id' | 'label' | 'requiredSecrets' | 'requiredParams'>>>([]);
+  const [alertThresholdsCsv, setAlertThresholdsCsv] = useState<string>(
+    (initial?.alertThresholdsPct ?? [80, 100]).join(', '),
+  );
+  const [skills, setSkills] = useState<
+    Array<Pick<Skill, 'id' | 'label' | 'requiredSecrets' | 'requiredParams'>>
+  >([]);
 
   useEffect(() => {
     window.api.listSkills().then(setSkills);
@@ -40,7 +53,10 @@ export function AccountForm({ initial, onSaved, onCancel }: Props): JSX.Element 
     e.preventDefault();
     const id = initial?.id ?? crypto.randomUUID();
     const now = new Date().toISOString();
-    const tags = tagsCsv.split(',').map((s) => s.trim()).filter(Boolean);
+    const tags = tagsCsv
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
     const alertThresholdsPct = alertThresholdsCsv
       .split(',')
       .map((s) => Number(s.trim()))
@@ -48,9 +64,16 @@ export function AccountForm({ initial, onSaved, onCancel }: Props): JSX.Element 
       .sort((a, b) => a - b);
 
     const account: Account = {
-      id, name, provider, periodRule, quota: Number(quota), unit,
+      id,
+      name,
+      provider,
+      periodRule,
+      quota: Number(quota),
+      unit,
       currency: unit === 'currency' ? currency : undefined,
-      collection, skillId, skillParams: Object.keys(skillParams).length ? skillParams : undefined,
+      collection,
+      skillId,
+      skillParams: Object.keys(skillParams).length ? skillParams : undefined,
       tolerancePct: Number(tolerancePct),
       tags,
       syncIntervalMinutes: syncIntervalMinutes > 0 ? Number(syncIntervalMinutes) : undefined,
@@ -65,8 +88,11 @@ export function AccountForm({ initial, onSaved, onCancel }: Props): JSX.Element 
       for (const key of selectedSkill.requiredSecrets) {
         const v = skillSecrets[key];
         if (v) {
-          try { await window.api.setSecret(id, key, v); }
-          catch (err) { toast.error(`Secret ${key} non sauvegardé : ${err instanceof Error ? err.message : String(err)}`); }
+          try {
+            await window.api.setSecret(id, key, v);
+          } catch (err) {
+            toast.error(`Secret ${key} non sauvegardé : ${err instanceof Error ? err.message : String(err)}`);
+          }
         }
       }
     }
@@ -110,7 +136,14 @@ export function AccountForm({ initial, onSaved, onCancel }: Props): JSX.Element 
       <div className="row-form">
         <label>
           Quota
-          <input type="number" min={0} step="any" value={quota} onChange={(e) => setQuota(Number(e.target.value))} required />
+          <input
+            type="number"
+            min={0}
+            step="any"
+            value={quota}
+            onChange={(e) => setQuota(Number(e.target.value))}
+            required
+          />
         </label>
         <label>
           Unité
@@ -132,22 +165,42 @@ export function AccountForm({ initial, onSaved, onCancel }: Props): JSX.Element 
 
       <label>
         Tolérance (%) — zone considérée «&nbsp;dans la cible&nbsp;»
-        <input type="number" min={0} max={50} step={0.5} value={tolerancePct} onChange={(e) => setTolerancePct(Number(e.target.value))} />
+        <input
+          type="number"
+          min={0}
+          max={50}
+          step={0.5}
+          value={tolerancePct}
+          onChange={(e) => setTolerancePct(Number(e.target.value))}
+        />
       </label>
 
       <fieldset style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
         <legend className="muted">Tags & automatismes</legend>
         <label>
           Tags (séparés par des virgules)
-          <input value={tagsCsv} onChange={(e) => setTagsCsv(e.target.value)} placeholder="perso, dev, client-X" />
+          <input
+            value={tagsCsv}
+            onChange={(e) => setTagsCsv(e.target.value)}
+            placeholder="perso, dev, client-X"
+          />
         </label>
         <label>
           Sync planifiée (minutes — 0 pour désactiver)
-          <input type="number" min={0} value={syncIntervalMinutes} onChange={(e) => setSyncIntervalMinutes(Number(e.target.value))} />
+          <input
+            type="number"
+            min={0}
+            value={syncIntervalMinutes}
+            onChange={(e) => setSyncIntervalMinutes(Number(e.target.value))}
+          />
         </label>
         <label>
           Seuils d&apos;alerte (% — séparés par des virgules)
-          <input value={alertThresholdsCsv} onChange={(e) => setAlertThresholdsCsv(e.target.value)} placeholder="50, 80, 100" />
+          <input
+            value={alertThresholdsCsv}
+            onChange={(e) => setAlertThresholdsCsv(e.target.value)}
+            placeholder="50, 80, 100"
+          />
         </label>
       </fieldset>
 
@@ -155,35 +208,67 @@ export function AccountForm({ initial, onSaved, onCancel }: Props): JSX.Element 
         <legend className="muted">Skill / connecteur (optionnel)</legend>
         <label>
           Skill
-          <select value={skillId ?? ''} onChange={(e) => { setSkillId(e.target.value || undefined); setSkillParams({}); setSkillSecrets({}); }}>
+          <select
+            value={skillId ?? ''}
+            onChange={(e) => {
+              setSkillId(e.target.value || undefined);
+              setSkillParams({});
+              setSkillSecrets({});
+            }}
+          >
             <option value="">{'— aucune —'}</option>
-            {skills.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+            {skills.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
+            ))}
           </select>
         </label>
 
         {selectedSkill?.requiredParams.map((p) => (
           <label key={p}>
             {p}
-            <input value={skillParams[p] ?? ''} onChange={(e) => setSkillParams({ ...skillParams, [p]: e.target.value })} />
+            <input
+              value={skillParams[p] ?? ''}
+              onChange={(e) => setSkillParams({ ...skillParams, [p]: e.target.value })}
+            />
           </label>
         ))}
         {selectedSkill?.requiredSecrets.map((s) => (
           <label key={s}>
-            {s} <span className="muted" style={{ fontSize: 11 }}>(stocké chiffré via OS keychain)</span>
-            <input type="password" value={skillSecrets[s] ?? ''} onChange={(e) => setSkillSecrets({ ...skillSecrets, [s]: e.target.value })} placeholder={initial ? '— inchangé —' : ''} />
+            {s}{' '}
+            <span className="muted" style={{ fontSize: 11 }}>
+              (stocké chiffré via OS keychain)
+            </span>
+            <input
+              type="password"
+              value={skillSecrets[s] ?? ''}
+              onChange={(e) => setSkillSecrets({ ...skillSecrets, [s]: e.target.value })}
+              placeholder={initial ? '— inchangé —' : ''}
+            />
           </label>
         ))}
       </fieldset>
 
       <div className="row" style={{ gap: 8 }}>
-        <button type="submit" className="primary">Enregistrer</button>
-        <button type="button" className="ghost" onClick={onCancel}>Annuler</button>
+        <button type="submit" className="primary">
+          Enregistrer
+        </button>
+        <button type="button" className="ghost" onClick={onCancel}>
+          Annuler
+        </button>
       </div>
     </form>
   );
 }
 
-function PeriodEditor({ rule, onChange }: { rule: PeriodRule; onChange: (r: PeriodRule) => void }): JSX.Element {
+function PeriodEditor({
+  rule,
+  onChange,
+}: {
+  rule: PeriodRule;
+  onChange: (r: PeriodRule) => void;
+}): JSX.Element {
   return (
     <>
       <label>
@@ -199,9 +284,14 @@ function PeriodEditor({ rule, onChange }: { rule: PeriodRule; onChange: (r: Peri
       {rule.type === 'weekly' && (
         <label>
           Jour de la semaine
-          <select value={rule.weekday ?? 1} onChange={(e) => onChange({ ...rule, weekday: Number(e.target.value) as IsoWeekday })}>
-            {['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'].map((d, i) => (
-              <option key={i + 1} value={i + 1}>{d}</option>
+          <select
+            value={rule.weekday ?? 1}
+            onChange={(e) => onChange({ ...rule, weekday: Number(e.target.value) as IsoWeekday })}
+          >
+            {['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'].map((d, i) => (
+              <option key={i + 1} value={i + 1}>
+                {d}
+              </option>
             ))}
           </select>
         </label>
@@ -210,7 +300,13 @@ function PeriodEditor({ rule, onChange }: { rule: PeriodRule; onChange: (r: Peri
       {rule.type === 'monthly' && (
         <label>
           Jour du mois (1-31, clamp si mois plus court)
-          <input type="number" min={1} max={31} value={rule.dayOfMonth ?? 1} onChange={(e) => onChange({ ...rule, dayOfMonth: Number(e.target.value) })} />
+          <input
+            type="number"
+            min={1}
+            max={31}
+            value={rule.dayOfMonth ?? 1}
+            onChange={(e) => onChange({ ...rule, dayOfMonth: Number(e.target.value) })}
+          />
         </label>
       )}
 
@@ -218,11 +314,23 @@ function PeriodEditor({ rule, onChange }: { rule: PeriodRule; onChange: (r: Peri
         <div className="row-form">
           <label>
             Mois (1-12)
-            <input type="number" min={1} max={12} value={rule.month ?? 1} onChange={(e) => onChange({ ...rule, month: Number(e.target.value) })} />
+            <input
+              type="number"
+              min={1}
+              max={12}
+              value={rule.month ?? 1}
+              onChange={(e) => onChange({ ...rule, month: Number(e.target.value) })}
+            />
           </label>
           <label>
             Jour (1-31)
-            <input type="number" min={1} max={31} value={rule.day ?? 1} onChange={(e) => onChange({ ...rule, day: Number(e.target.value) })} />
+            <input
+              type="number"
+              min={1}
+              max={31}
+              value={rule.day ?? 1}
+              onChange={(e) => onChange({ ...rule, day: Number(e.target.value) })}
+            />
           </label>
         </div>
       )}
@@ -231,18 +339,31 @@ function PeriodEditor({ rule, onChange }: { rule: PeriodRule; onChange: (r: Peri
         <div className="row-form">
           <label>
             Date de début
-            <input type="date" value={(rule.startDate ?? new Date().toISOString()).slice(0, 10)} onChange={(e) => onChange({ ...rule, startDate: new Date(e.target.value).toISOString() })} />
+            <input
+              type="date"
+              value={(rule.startDate ?? new Date().toISOString()).slice(0, 10)}
+              onChange={(e) => onChange({ ...rule, startDate: new Date(e.target.value).toISOString() })}
+            />
           </label>
           <label>
             Longueur (jours)
-            <input type="number" min={1} value={rule.periodLengthDays ?? 30} onChange={(e) => onChange({ ...rule, periodLengthDays: Number(e.target.value) })} />
+            <input
+              type="number"
+              min={1}
+              value={rule.periodLengthDays ?? 30}
+              onChange={(e) => onChange({ ...rule, periodLengthDays: Number(e.target.value) })}
+            />
           </label>
         </div>
       )}
 
       <label>
         Timezone (IANA)
-        <input value={rule.timezone} onChange={(e) => onChange({ ...rule, timezone: e.target.value })} placeholder="Europe/Paris" />
+        <input
+          value={rule.timezone}
+          onChange={(e) => onChange({ ...rule, timezone: e.target.value })}
+          placeholder="Europe/Paris"
+        />
       </label>
     </>
   );

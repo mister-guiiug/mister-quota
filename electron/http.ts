@@ -14,7 +14,11 @@ export interface FetchOptions {
 const defaultRetryOnStatus = (s: number): boolean => s === 408 || s === 425 || s === 429 || s >= 500;
 
 export class HttpError extends Error {
-  constructor(public status: number, public body: string, message: string) {
+  constructor(
+    public status: number,
+    public body: string,
+    message: string,
+  ) {
     super(message);
   }
 }
