@@ -29,7 +29,10 @@ function resolveWasmPath(): string {
 }
 import type { Account, UsageEntry } from '../shared/types';
 
-interface Logger { info: (msg: string) => void; error: (msg: string, err?: unknown) => void }
+interface Logger {
+  info: (msg: string) => void;
+  error: (msg: string, err?: unknown) => void;
+}
 
 export interface SkillRunRow {
   id: string;
@@ -168,7 +171,10 @@ export class Storage {
   getAccount(id: string): Account | null {
     const stmt = this.db.prepare('SELECT * FROM accounts WHERE id = ?');
     stmt.bind([id]);
-    if (!stmt.step()) { stmt.free(); return null; }
+    if (!stmt.step()) {
+      stmt.free();
+      return null;
+    }
     const obj = stmt.getAsObject();
     stmt.free();
     return rowObjToAccount(obj);
@@ -202,8 +208,15 @@ export class Storage {
          last_alert_period_start=excluded.last_alert_period_start,
          updated_at=excluded.updated_at`,
       [
-        a.id, a.name, a.provider, JSON.stringify(a.periodRule), a.quota, a.unit,
-        a.currency ?? null, a.collection, a.skillId ?? null,
+        a.id,
+        a.name,
+        a.provider,
+        JSON.stringify(a.periodRule),
+        a.quota,
+        a.unit,
+        a.currency ?? null,
+        a.collection,
+        a.skillId ?? null,
         a.skillParams ? JSON.stringify(a.skillParams) : null,
         a.tolerancePct,
         JSON.stringify(a.tags ?? []),
@@ -211,7 +224,8 @@ export class Storage {
         JSON.stringify(a.alertThresholdsPct ?? [80, 100]),
         a.lastAlertedThresholdPct ?? null,
         a.lastAlertPeriodStart ?? null,
-        a.createdAt, a.updatedAt,
+        a.createdAt,
+        a.updatedAt,
       ],
     );
     this.flush();
@@ -224,9 +238,7 @@ export class Storage {
 
   // ── Entries ───────────────────────────────────────────────────────────────
   listEntries(accountId: string): UsageEntry[] {
-    const stmt = this.db.prepare(
-      'SELECT * FROM entries WHERE account_id = ? ORDER BY recorded_at DESC',
-    );
+    const stmt = this.db.prepare('SELECT * FROM entries WHERE account_id = ? ORDER BY recorded_at DESC');
     stmt.bind([accountId]);
     const out: UsageEntry[] = [];
     while (stmt.step()) out.push(rowObjToEntry(stmt.getAsObject()));
@@ -249,11 +261,29 @@ export class Storage {
   }
 
   // ── Skill runs (audit log) ───────────────────────────────────────────────
-  recordSkillRun(run: { id: string; accountId: string; skillId: string; startedAt: string; finishedAt?: string; ok: boolean; error?: string; reportJson?: string }): void {
+  recordSkillRun(run: {
+    id: string;
+    accountId: string;
+    skillId: string;
+    startedAt: string;
+    finishedAt?: string;
+    ok: boolean;
+    error?: string;
+    reportJson?: string;
+  }): void {
     this.db.run(
       `INSERT INTO skill_runs(id,account_id,skill_id,started_at,finished_at,ok,error,report_json)
        VALUES(?,?,?,?,?,?,?,?)`,
-      [run.id, run.accountId, run.skillId, run.startedAt, run.finishedAt ?? null, run.ok ? 1 : 0, run.error ?? null, run.reportJson ?? null],
+      [
+        run.id,
+        run.accountId,
+        run.skillId,
+        run.startedAt,
+        run.finishedAt ?? null,
+        run.ok ? 1 : 0,
+        run.error ?? null,
+        run.reportJson ?? null,
+      ],
     );
     this.flush();
   }
@@ -295,7 +325,9 @@ export class Storage {
 
 function rowToAccount(columns: string[], row: any[]): Account {
   const obj: Record<string, any> = {};
-  columns.forEach((c, i) => { obj[c] = row[i]; });
+  columns.forEach((c, i) => {
+    obj[c] = row[i];
+  });
   return rowObjToAccount(obj);
 }
 

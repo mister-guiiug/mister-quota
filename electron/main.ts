@@ -23,13 +23,32 @@ function parseCsvLine(line: string): string[] {
   while (i < line.length) {
     const c = line[i];
     if (inQuotes) {
-      if (c === '"' && line[i + 1] === '"') { cur += '"'; i += 2; continue; }
-      if (c === '"') { inQuotes = false; i++; continue; }
-      cur += c; i++;
+      if (c === '"' && line[i + 1] === '"') {
+        cur += '"';
+        i += 2;
+        continue;
+      }
+      if (c === '"') {
+        inQuotes = false;
+        i++;
+        continue;
+      }
+      cur += c;
+      i++;
     } else {
-      if (c === '"') { inQuotes = true; i++; continue; }
-      if (c === ',') { out.push(cur); cur = ''; i++; continue; }
-      cur += c; i++;
+      if (c === '"') {
+        inQuotes = true;
+        i++;
+        continue;
+      }
+      if (c === ',') {
+        out.push(cur);
+        cur = '';
+        i++;
+        continue;
+      }
+      cur += c;
+      i++;
     }
   }
   out.push(cur);
@@ -67,11 +86,15 @@ async function createWindow(): Promise<BrowserWindow> {
     await win.loadFile(path.join(__dirname, '../../dist/index.html'));
   }
   mainWindow = win;
-  win.on('closed', () => { if (mainWindow === win) mainWindow = null; });
+  win.on('closed', () => {
+    if (mainWindow === win) mainWindow = null;
+  });
   return win;
 }
 
-async function runSync(accountId: string): Promise<{ ok: boolean; error?: string; report?: SkillUsageReport }> {
+async function runSync(
+  accountId: string,
+): Promise<{ ok: boolean; error?: string; report?: SkillUsageReport }> {
   const account = storage.getAccount(accountId);
   if (!account) return { ok: false, error: 'account not found' };
   if (!account.skillId) return { ok: false, error: 'no skill configured' };
@@ -94,19 +117,33 @@ async function runSync(accountId: string): Promise<{ ok: boolean; error?: string
     };
     storage.insertEntry(entry);
     storage.recordSkillRun({
-      id: runId, accountId: account.id, skillId: skill.id, startedAt,
-      finishedAt: new Date().toISOString(), ok: true, reportJson: JSON.stringify(report),
+      id: runId,
+      accountId: account.id,
+      skillId: skill.id,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      ok: true,
+      reportJson: JSON.stringify(report),
     });
     // Re-evaluate alerts for this account after the new reading lands.
     const allEntries = storage.listEntries(account.id);
-    evaluateAlerts(computeAccountState({ account, entries: allEntries, historicalEntries: allEntries }), storage, log);
+    evaluateAlerts(
+      computeAccountState({ account, entries: allEntries, historicalEntries: allEntries }),
+      storage,
+      log,
+    );
     return { ok: true, report };
   } catch (e) {
     const err = e instanceof Error ? e.message : String(e);
     log.error(`syncNow failed for account=${account.id}`, e);
     storage.recordSkillRun({
-      id: runId, accountId: account.id, skillId: skill.id, startedAt,
-      finishedAt: new Date().toISOString(), ok: false, error: err,
+      id: runId,
+      accountId: account.id,
+      skillId: skill.id,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      ok: false,
+      error: err,
     });
     return { ok: false, error: err };
   }
@@ -134,12 +171,16 @@ app.whenReady().then(async () => {
 
   // Tray icon: lets the app live in the background when the main window
   // is closed (useful with scheduled syncs).
-  tray = buildTray(storage, () => mainWindow, async () => {
-    for (const a of storage.listAccounts()) {
-      if (a.skillId) await runSync(a.id);
-    }
-    tray?.refresh();
-  });
+  tray = buildTray(
+    storage,
+    () => mainWindow,
+    async () => {
+      for (const a of storage.listAccounts()) {
+        if (a.skillId) await runSync(a.id);
+      }
+      tray?.refresh();
+    },
+  );
 
   // Scheduler ticks accounts that opted into auto-sync.
   scheduler = new Scheduler(storage, log, async (accountId) => {
@@ -154,7 +195,9 @@ app.whenReady().then(async () => {
   // Opt-in auto-updater (env-gated; safe no-op in dev or when not packaged).
   setupAutoUpdater({
     log,
-    notify: (title, body) => { if (Notification.isSupported()) new Notification({ title, body }).show(); },
+    notify: (title, body) => {
+      if (Notification.isSupported()) new Notification({ title, body }).show();
+    },
   });
 
   app.on('activate', async () => {
@@ -165,7 +208,9 @@ app.whenReady().then(async () => {
 // Don't quit when the window closes — the tray keeps the app alive so
 // scheduled syncs keep running in the background. Only quit when the
 // tray "Quitter" item is invoked.
-app.on('window-all-closed', () => { /* keep alive */ });
+app.on('window-all-closed', () => {
+  /* keep alive */
+});
 
 app.on('before-quit', () => {
   scheduler?.stop();
@@ -199,7 +244,10 @@ function registerIpcHandlers(): void {
     }
     tray?.refresh();
   });
-  ipcMain.handle(IPC.deleteEntry, (_e, id: string) => { storage.deleteEntry(id); tray?.refresh(); });
+  ipcMain.handle(IPC.deleteEntry, (_e, id: string) => {
+    storage.deleteEntry(id);
+    tray?.refresh();
+  });
 
   ipcMain.handle(IPC.computeState, (_e, accountId: string): AccountState | null => {
     const account = storage.getAccount(accountId);
@@ -216,9 +264,15 @@ function registerIpcHandlers(): void {
     });
   });
 
-  ipcMain.handle(IPC.listSkills, () => SKILLS.map(({ id, label, provider, requiredSecrets, requiredParams }) => ({
-    id, label, provider, requiredSecrets, requiredParams,
-  })));
+  ipcMain.handle(IPC.listSkills, () =>
+    SKILLS.map(({ id, label, provider, requiredSecrets, requiredParams }) => ({
+      id,
+      label,
+      provider,
+      requiredSecrets,
+      requiredParams,
+    })),
+  );
 
   ipcMain.handle(IPC.setSecret, async (_e, accountId: string, key: string, value: string) => {
     await secrets.set(accountId, key, value);
@@ -230,85 +284,119 @@ function registerIpcHandlers(): void {
     storage.listSkillRuns(opts),
   );
 
-  ipcMain.handle(IPC.importEntriesCsv, (_e, accountId: string, csvText: string): { inserted: number; errors: string[] } => {
-    const account = storage.getAccount(accountId);
-    if (!account) return { inserted: 0, errors: ['account not found'] };
-    const errors: string[] = [];
-    let inserted = 0;
-    const lines = csvText.split(/\r?\n/);
-    // Heuristic header detection — look for known field names.
-    const headerIdx = lines.findIndex((l) => /recorded_?at|date|timestamp/i.test(l));
-    let dateCol = 0, valueCol = 1, modeCol = 2, commentCol = 3;
-    if (headerIdx >= 0) {
-      const cols = parseCsvLine(lines[headerIdx]);
-      const idx = (re: RegExp) => cols.findIndex((c) => re.test(c));
-      dateCol = idx(/recorded_?at|date|timestamp/i);
-      valueCol = idx(/value|consumed|amount|tokens/i);
-      modeCol = idx(/mode/i);
-      commentCol = idx(/comment|note/i);
-    }
-    for (let i = (headerIdx >= 0 ? headerIdx + 1 : 0); i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line || line.startsWith('#')) continue;
-      const cols = parseCsvLine(line);
-      try {
-        const recordedAt = new Date(cols[dateCol]);
-        if (Number.isNaN(recordedAt.getTime())) throw new Error(`invalid date: ${cols[dateCol]}`);
-        const value = Number(cols[valueCol]);
-        if (!Number.isFinite(value)) throw new Error(`invalid value: ${cols[valueCol]}`);
-        const modeRaw = (modeCol >= 0 ? cols[modeCol] : 'cumulative').toLowerCase();
-        const mode = modeRaw === 'delta' ? 'delta' : 'cumulative';
-        storage.insertEntry({
-          id: randomUUID(),
-          accountId,
-          recordedAt: recordedAt.toISOString(),
-          value,
-          mode,
-          source: 'manual',
-          comment: commentCol >= 0 ? cols[commentCol] : undefined,
-        });
-        inserted++;
-      } catch (err) {
-        errors.push(`L${i + 1}: ${err instanceof Error ? err.message : String(err)}`);
+  ipcMain.handle(
+    IPC.importEntriesCsv,
+    (_e, accountId: string, csvText: string): { inserted: number; errors: string[] } => {
+      const account = storage.getAccount(accountId);
+      if (!account) return { inserted: 0, errors: ['account not found'] };
+      const errors: string[] = [];
+      let inserted = 0;
+      const lines = csvText.split(/\r?\n/);
+      // Heuristic header detection — look for known field names.
+      const headerIdx = lines.findIndex((l) => /recorded_?at|date|timestamp/i.test(l));
+      let dateCol = 0,
+        valueCol = 1,
+        modeCol = 2,
+        commentCol = 3;
+      if (headerIdx >= 0) {
+        const cols = parseCsvLine(lines[headerIdx]);
+        const idx = (re: RegExp) => cols.findIndex((c) => re.test(c));
+        dateCol = idx(/recorded_?at|date|timestamp/i);
+        valueCol = idx(/value|consumed|amount|tokens/i);
+        modeCol = idx(/mode/i);
+        commentCol = idx(/comment|note/i);
       }
-    }
-    return { inserted, errors };
-  });
+      for (let i = headerIdx >= 0 ? headerIdx + 1 : 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line || line.startsWith('#')) continue;
+        const cols = parseCsvLine(line);
+        try {
+          const recordedAt = new Date(cols[dateCol]);
+          if (Number.isNaN(recordedAt.getTime())) throw new Error(`invalid date: ${cols[dateCol]}`);
+          const value = Number(cols[valueCol]);
+          if (!Number.isFinite(value)) throw new Error(`invalid value: ${cols[valueCol]}`);
+          const modeRaw = (modeCol >= 0 ? cols[modeCol] : 'cumulative').toLowerCase();
+          const mode = modeRaw === 'delta' ? 'delta' : 'cumulative';
+          storage.insertEntry({
+            id: randomUUID(),
+            accountId,
+            recordedAt: recordedAt.toISOString(),
+            value,
+            mode,
+            source: 'manual',
+            comment: commentCol >= 0 ? cols[commentCol] : undefined,
+          });
+          inserted++;
+        } catch (err) {
+          errors.push(`L${i + 1}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+      return { inserted, errors };
+    },
+  );
 
   ipcMain.handle(IPC.exportData, async (_e, format: 'csv' | 'json'): Promise<string> => {
     const accounts = storage.listAccounts();
-    const states = accounts.map((a) => computeAccountState({ account: a, entries: storage.listEntries(a.id) }));
+    const states = accounts.map((a) =>
+      computeAccountState({ account: a, entries: storage.listEntries(a.id) }),
+    );
     const entries = accounts.flatMap((a) => storage.listEntries(a.id));
 
     const { canceled, filePath } = await dialog.showSaveDialog({
       title: 'Export data',
       defaultPath: `mister-quota-export-${Date.now()}.${format}`,
-      filters: format === 'csv'
-        ? [{ name: 'CSV', extensions: ['csv'] }]
-        : [{ name: 'JSON', extensions: ['json'] }],
+      filters:
+        format === 'csv' ? [{ name: 'CSV', extensions: ['csv'] }] : [{ name: 'JSON', extensions: ['json'] }],
     });
     if (canceled || !filePath) return '';
 
     if (format === 'json') {
       await fs.writeFile(filePath, JSON.stringify({ accounts, entries, states }, null, 2), 'utf8');
     } else {
-      const header = ['account_id','account_name','recorded_at','value','mode','source','comment'].join(',');
-      const rows = entries.map((e) => [
-        e.accountId,
-        accounts.find((a) => a.id === e.accountId)?.name ?? '',
-        e.recordedAt,
-        e.value,
-        e.mode,
-        e.source,
-        (e.comment ?? '').replace(/"/g, '""'),
-      ].map((c) => `"${String(c)}"`).join(','));
+      const header = ['account_id', 'account_name', 'recorded_at', 'value', 'mode', 'source', 'comment'].join(
+        ',',
+      );
+      const rows = entries.map((e) =>
+        [
+          e.accountId,
+          accounts.find((a) => a.id === e.accountId)?.name ?? '',
+          e.recordedAt,
+          e.value,
+          e.mode,
+          e.source,
+          (e.comment ?? '').replace(/"/g, '""'),
+        ]
+          .map((c) => `"${String(c)}"`)
+          .join(','),
+      );
       // Append a separate per-account state block as commented rows.
-      const stateRows = states.map((s) => [
-        '#STATE', s.account.id, s.account.name, s.consumed, s.idealToDate,
-        s.delta, s.deltaPct.toFixed(2), s.theoreticalDailyAmount.toFixed(2),
-        s.requiredDailyAvgRemaining.toFixed(2), s.status,
-      ].map((c) => `"${String(c)}"`).join(','));
-      await fs.writeFile(filePath, [header, ...rows, '', '#STATE,account_id,name,consumed,idealToDate,delta,deltaPct,theoreticalDailyAmount,requiredDailyAvgRemaining,status', ...stateRows].join('\n'), 'utf8');
+      const stateRows = states.map((s) =>
+        [
+          '#STATE',
+          s.account.id,
+          s.account.name,
+          s.consumed,
+          s.idealToDate,
+          s.delta,
+          s.deltaPct.toFixed(2),
+          s.theoreticalDailyAmount.toFixed(2),
+          s.requiredDailyAvgRemaining.toFixed(2),
+          s.status,
+        ]
+          .map((c) => `"${String(c)}"`)
+          .join(','),
+      );
+      await fs.writeFile(
+        filePath,
+        [
+          header,
+          ...rows,
+          '',
+          '#STATE,account_id,name,consumed,idealToDate,delta,deltaPct,theoreticalDailyAmount,requiredDailyAvgRemaining,status',
+          ...stateRows,
+        ].join('\n'),
+        'utf8',
+      );
     }
     return filePath;
   });

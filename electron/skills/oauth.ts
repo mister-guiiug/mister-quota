@@ -55,7 +55,9 @@ export async function runPkceFlow(cfg: PkceConfig): Promise<TokenSet> {
       try {
         const u = new URL(req.url ?? '/', `http://localhost`);
         if (!u.pathname.startsWith(redirectPath)) {
-          res.statusCode = 404; res.end(); return;
+          res.statusCode = 404;
+          res.end();
+          return;
         }
         const c = u.searchParams.get('code');
         const s = u.searchParams.get('state');
@@ -97,7 +99,11 @@ export async function runPkceFlow(cfg: PkceConfig): Promise<TokenSet> {
   url.searchParams.set('redirect_uri', `http://127.0.0.1:${port}${redirectPath}`);
   for (const [k, v] of Object.entries(cfg.extraAuthParams ?? {})) url.searchParams.set(k, v);
 
-  const win = new BrowserWindow({ width: 520, height: 720, webPreferences: { nodeIntegration: false, contextIsolation: true } });
+  const win = new BrowserWindow({
+    width: 520,
+    height: 720,
+    webPreferences: { nodeIntegration: false, contextIsolation: true },
+  });
   await win.loadURL(url.toString());
 
   // Exchange code for tokens.
@@ -110,7 +116,11 @@ export async function runPkceFlow(cfg: PkceConfig): Promise<TokenSet> {
   });
   const tokens = await fetchWithRetry<Record<string, unknown>>({
     url: cfg.tokenUrl,
-    init: { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: body.toString() },
+    init: {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    },
   });
   win.close();
 

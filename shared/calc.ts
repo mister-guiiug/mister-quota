@@ -36,7 +36,13 @@ export function reduceConsumed(entries: UsageEntry[], periodStart: string, perio
   return sawCumulative ? cumulativeBaseline + deltaSinceBaseline : deltaSinceBaseline;
 }
 
-function statusFor(deltaPct: number, tolerancePct: number, consumed: number, quota: number, remainingDays: number): Status {
+function statusFor(
+  deltaPct: number,
+  tolerancePct: number,
+  consumed: number,
+  quota: number,
+  remainingDays: number,
+): Status {
   if (remainingDays <= 0) return 'period_ended';
   if (consumed > quota) return 'over_quota';
   if (Math.abs(deltaPct) <= tolerancePct) return 'on_track';
@@ -47,7 +53,11 @@ function statusFor(deltaPct: number, tolerancePct: number, consumed: number, quo
 // Build a sorted "running cumulative" series (timestampMs, cumulativeValue) from
 // raw entries. Used by the regression projection. Mirrors reduceConsumed's
 // rules (cumulative resets the baseline, deltas add on top).
-export function cumulativeSeries(entries: UsageEntry[], periodStart: string, periodEnd: string): Array<[number, number]> {
+export function cumulativeSeries(
+  entries: UsageEntry[],
+  periodStart: string,
+  periodEnd: string,
+): Array<[number, number]> {
   const start = new Date(periodStart).getTime();
   const end = new Date(periodEnd).getTime();
   const sorted = entries
@@ -77,12 +87,20 @@ export function cumulativeSeries(entries: UsageEntry[], periodStart: string, per
 
 // Linear regression on (timeMs, cumulative). Returns slope (units / ms) and
 // intercept. Returns null if fewer than 2 points.
-export function linearRegression(series: Array<[number, number]>): { slopePerMs: number; intercept: number } | null {
+export function linearRegression(
+  series: Array<[number, number]>,
+): { slopePerMs: number; intercept: number } | null {
   if (series.length < 2) return null;
   const n = series.length;
-  let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+  let sumX = 0,
+    sumY = 0,
+    sumXY = 0,
+    sumX2 = 0;
   for (const [x, y] of series) {
-    sumX += x; sumY += y; sumXY += x * y; sumX2 += x * x;
+    sumX += x;
+    sumY += y;
+    sumXY += x * y;
+    sumX2 += x * x;
   }
   const denom = n * sumX2 - sumX * sumX;
   if (denom === 0) return null;

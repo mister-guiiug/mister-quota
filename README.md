@@ -6,13 +6,13 @@ Application desktop multiplateforme (Windows / macOS / Linux) pour suivre la con
 
 ## Choix techniques
 
-| Aspect            | Choix                                              | Pourquoi                                                                |
-| ----------------- | -------------------------------------------------- | ----------------------------------------------------------------------- |
-| Runtime desktop   | **Electron** + Vite + React + TypeScript           | Le spec listait Tauri en défaut ; faute de toolchain Rust sur la machine de scaffolding, Electron a été retenu (option n° 2 du spec). La structure reste portable vers Tauri (cf. § "Migration vers Tauri" plus bas). |
-| Stockage          | **SQLite via `sql.js`** (WASM, pas de native dep)  | Conforme à l'exigence "SQLite", installable partout sans Visual Studio C++ ni `node-gyp`. Migrations forward-only. |
-| Secrets (API keys)| **Electron `safeStorage`** → Keychain / DPAPI / libsecret | Conforme à l'exigence "chiffrés localement via OS keychain".            |
-| Dates / TZ        | `date-fns` + `date-fns-tz`                          | Calcul de période robuste aux fuseaux et aux mois courts (clamp 31 → 28/30). |
-| Tests             | `vitest`                                            | Suite focalisée sur les fonctions de calcul et la résolution de période. |
+| Aspect             | Choix                                                     | Pourquoi                                                                                                                                                                                                              |
+| ------------------ | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime desktop    | **Electron** + Vite + React + TypeScript                  | Le spec listait Tauri en défaut ; faute de toolchain Rust sur la machine de scaffolding, Electron a été retenu (option n° 2 du spec). La structure reste portable vers Tauri (cf. § "Migration vers Tauri" plus bas). |
+| Stockage           | **SQLite via `sql.js`** (WASM, pas de native dep)         | Conforme à l'exigence "SQLite", installable partout sans Visual Studio C++ ni `node-gyp`. Migrations forward-only.                                                                                                    |
+| Secrets (API keys) | **Electron `safeStorage`** → Keychain / DPAPI / libsecret | Conforme à l'exigence "chiffrés localement via OS keychain".                                                                                                                                                          |
+| Dates / TZ         | `date-fns` + `date-fns-tz`                                | Calcul de période robuste aux fuseaux et aux mois courts (clamp 31 → 28/30).                                                                                                                                          |
+| Tests              | `vitest`                                                  | Suite focalisée sur les fonctions de calcul et la résolution de période.                                                                                                                                              |
 
 ---
 
@@ -47,14 +47,14 @@ Le dossier `.vscode/` est commité avec :
   - `build: production` / `package: desktop (electron-builder)`
 
 - **Run & Debug** (`F5`) :
-  - **`Electron: Main + Renderer`** *(compound — recommandé)* : compile electron, démarre Vite en arrière-plan, lance Electron avec `--remote-debugging-port=9223`, puis attache Chrome au renderer. Breakpoints fonctionnels dans `electron/*.ts` **et** `src/**/*.tsx`.
+  - **`Electron: Main + Renderer`** _(compound — recommandé)_ : compile electron, démarre Vite en arrière-plan, lance Electron avec `--remote-debugging-port=9223`, puis attache Chrome au renderer. Breakpoints fonctionnels dans `electron/*.ts` **et** `src/**/*.tsx`.
   - **`Electron: Main`** seul — debug du process principal uniquement.
   - **`Electron: Renderer (attach)`** seul — attache à une instance Electron déjà démarrée (port 9223).
   - **`Vitest: current file`** / **`Vitest: all`** — debug d'un test ou de toute la suite.
 
 > Source maps activées (`electron/tsconfig.json` → `sourceMap: true`) — les breakpoints pointent sur le TS d'origine.
 
-> Le mode `npm run dev` (Vite seul, sans Electron) lance l'UI dans le navigateur avec un *preview shim* en mémoire — utile pour démonstration et pour itérer sur l'UI sans Electron.
+> Le mode `npm run dev` (Vite seul, sans Electron) lance l'UI dans le navigateur avec un _preview shim_ en mémoire — utile pour démonstration et pour itérer sur l'UI sans Electron.
 
 ---
 
@@ -101,17 +101,17 @@ mister-quota/
 
 Pour chaque compte, `computeAccountState` retourne :
 
-| Indicateur                       | Formule                                                       |
-| -------------------------------- | ------------------------------------------------------------- |
-| `consumed`                       | Agrégat des entries (mix cumulative + delta)                  |
-| `idealToDate`                    | `quota × (elapsed / total)`                                   |
-| `delta` / `deltaPct`             | `consumed − idealToDate` ; `delta / quota × 100`              |
-| `status`                         | `ahead` / `on_track` / `behind` / `over_quota` / `period_ended` selon la tolérance |
-| **`theoreticalDailyPct`**        | `100 / totalDays` (ex. 3,33 % / jour sur 30 j)                |
-| **`theoreticalDailyAmount`**     | `quota / totalDays`                                           |
-| **`requiredDailyAvgRemaining`**  | `(quota − consumed) / remainingDays` — moyenne cible sur les jours restants |
-| `paceDeltaDaily(Pct)`            | Vitesse réelle − vitesse cible (en unité/j et en %/j)         |
-| `projectedEndConsumption`        | `(consumed / elapsed) × totalDays` — projection si la vitesse tient |
+| Indicateur                      | Formule                                                                            |
+| ------------------------------- | ---------------------------------------------------------------------------------- |
+| `consumed`                      | Agrégat des entries (mix cumulative + delta)                                       |
+| `idealToDate`                   | `quota × (elapsed / total)`                                                        |
+| `delta` / `deltaPct`            | `consumed − idealToDate` ; `delta / quota × 100`                                   |
+| `status`                        | `ahead` / `on_track` / `behind` / `over_quota` / `period_ended` selon la tolérance |
+| **`theoreticalDailyPct`**       | `100 / totalDays` (ex. 3,33 % / jour sur 30 j)                                     |
+| **`theoreticalDailyAmount`**    | `quota / totalDays`                                                                |
+| **`requiredDailyAvgRemaining`** | `(quota − consumed) / remainingDays` — moyenne cible sur les jours restants        |
+| `paceDeltaDaily(Pct)`           | Vitesse réelle − vitesse cible (en unité/j et en %/j)                              |
+| `projectedEndConsumption`       | `(consumed / elapsed) × totalDays` — projection si la vitesse tient                |
 
 Cas limites traités : `consumed > quota` → statut `over_quota` ; `remainingDays ≤ 0` → statut `period_ended`.
 
@@ -126,8 +126,8 @@ interface Skill {
   id: string;
   label: string;
   provider: Provider;
-  requiredSecrets: string[];   // → champs password dans le formulaire, stockés via OS keychain
-  requiredParams: string[];    // → champs texte non sensibles (organizationId, projectId, …)
+  requiredSecrets: string[]; // → champs password dans le formulaire, stockés via OS keychain
+  requiredParams: string[]; // → champs texte non sensibles (organizationId, projectId, …)
   fetch(ctx: SkillContext): Promise<SkillUsageReport>;
 }
 ```
@@ -190,13 +190,13 @@ L'architecture sépare strictement le code partagé (`shared/`) du code spécifi
 
 ### Déjà livré (waves 1 → 6)
 
-| | |
-|---|---|
-| **Wave 1** | ESLint + Prettier, GitHub Actions CI (Node 20.x / 22.x, lint + typecheck + test + build + e2e), tests d'intégration `Storage`. |
+|            |                                                                                                                                                                                               |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Wave 1** | ESLint + Prettier, GitHub Actions CI (Node 20.x / 22.x, lint + typecheck + test + build + e2e), tests d'intégration `Storage`.                                                                |
 | **Wave 2** | Schema-versioning du `SkillUsageReport`, projection par régression linéaire (`projectedEndConsumptionRecent`, `projectedExhaustionDate`), comparaison inter-périodes (`previous`, `history`). |
-| **Wave 3** | `Account.tags`, `syncIntervalMinutes`, `alertThresholdsPct` ; migration SQLite v2 forward-only ; tag chips + budget € agrégé sur le dashboard. |
-| **Wave 4** | Store Zustand, toaster custom, `ConfirmDialog`, `ErrorBoundary`, skeletons de chargement ; remplacement de tous les `alert()` / `confirm()` natifs. |
-| **Wave 5** | Import CSV (header-detection + erreurs par ligne), évaluateur d'alertes OS Notifications avec anti-spam intra-période, scheduler par compte, tray icon avec menu trié. |
-| **Wave 6** | `fetchWithRetry` (timeout + backoff exponentiel + Retry-After), Playwright e2e en mode preview-shim, scaffolds `electron-updater` (env-gated) et `runPkceFlow`. |
+| **Wave 3** | `Account.tags`, `syncIntervalMinutes`, `alertThresholdsPct` ; migration SQLite v2 forward-only ; tag chips + budget € agrégé sur le dashboard.                                                |
+| **Wave 4** | Store Zustand, toaster custom, `ConfirmDialog`, `ErrorBoundary`, skeletons de chargement ; remplacement de tous les `alert()` / `confirm()` natifs.                                           |
+| **Wave 5** | Import CSV (header-detection + erreurs par ligne), évaluateur d'alertes OS Notifications avec anti-spam intra-période, scheduler par compte, tray icon avec menu trié.                        |
+| **Wave 6** | `fetchWithRetry` (timeout + backoff exponentiel + Retry-After), Playwright e2e en mode preview-shim, scaffolds `electron-updater` (env-gated) et `runPkceFlow`.                               |
 
 Licence : MIT.

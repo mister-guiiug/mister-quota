@@ -75,7 +75,12 @@ describe('computeAccountState — core indicators', () => {
   it('computes ideal-to-date and delta linearly', () => {
     const account = baseAccount({
       quota: 1_000_000,
-      periodRule: { type: 'custom', startDate: '2026-05-01T00:00:00Z', periodLengthDays: 10, timezone: 'UTC' },
+      periodRule: {
+        type: 'custom',
+        startDate: '2026-05-01T00:00:00Z',
+        periodLengthDays: 10,
+        timezone: 'UTC',
+      },
     });
     const entries = [entry({ recordedAt: '2026-05-05T00:00:00Z', value: 600_000, mode: 'cumulative' })];
     const now = new Date('2026-05-06T00:00:00Z'); // 5 elapsed days of 10
@@ -92,7 +97,12 @@ describe('computeAccountState — core indicators', () => {
   it('reports the spec-required indicators (theoretical-daily and required-daily-remaining)', () => {
     const account = baseAccount({
       quota: 300, // 10 / day on a 30d period
-      periodRule: { type: 'custom', startDate: '2026-05-01T00:00:00Z', periodLengthDays: 30, timezone: 'UTC' },
+      periodRule: {
+        type: 'custom',
+        startDate: '2026-05-01T00:00:00Z',
+        periodLengthDays: 30,
+        timezone: 'UTC',
+      },
     });
     const entries = [entry({ recordedAt: '2026-05-15T00:00:00Z', value: 200, mode: 'cumulative' })];
     const now = new Date('2026-05-16T00:00:00Z'); // 15 elapsed of 30
@@ -182,7 +192,12 @@ describe('period resolution — anchor types', () => {
 
   it('custom: 14-day cycle starting 2026-05-01 contains 2026-05-15', () => {
     const account = baseAccount({
-      periodRule: { type: 'custom', startDate: '2026-05-01T00:00:00Z', periodLengthDays: 14, timezone: 'UTC' },
+      periodRule: {
+        type: 'custom',
+        startDate: '2026-05-01T00:00:00Z',
+        periodLengthDays: 14,
+        timezone: 'UTC',
+      },
     });
     const now = new Date('2026-05-15T00:00:00Z');
     const s = computeAccountState({ account, entries: [], now });
@@ -194,9 +209,30 @@ describe('period resolution — anchor types', () => {
 describe('cumulativeSeries + linearRegression', () => {
   it('builds a monotonically growing series from cumulative entries', () => {
     const e: UsageEntry[] = [
-      { id: '1', accountId: 'a', recordedAt: '2026-05-02T00:00:00Z', value: 10, mode: 'cumulative', source: 'manual' },
-      { id: '2', accountId: 'a', recordedAt: '2026-05-04T00:00:00Z', value: 30, mode: 'cumulative', source: 'manual' },
-      { id: '3', accountId: 'a', recordedAt: '2026-05-06T00:00:00Z', value: 60, mode: 'cumulative', source: 'manual' },
+      {
+        id: '1',
+        accountId: 'a',
+        recordedAt: '2026-05-02T00:00:00Z',
+        value: 10,
+        mode: 'cumulative',
+        source: 'manual',
+      },
+      {
+        id: '2',
+        accountId: 'a',
+        recordedAt: '2026-05-04T00:00:00Z',
+        value: 30,
+        mode: 'cumulative',
+        source: 'manual',
+      },
+      {
+        id: '3',
+        accountId: 'a',
+        recordedAt: '2026-05-06T00:00:00Z',
+        value: 60,
+        mode: 'cumulative',
+        source: 'manual',
+      },
     ];
     const s = cumulativeSeries(e, '2026-05-01T00:00:00Z', '2026-05-31T00:00:00Z');
     expect(s).toHaveLength(3);
@@ -221,13 +257,39 @@ describe('computeAccountState — projections', () => {
   it('projectedEndConsumptionRecent uses regression when ≥3 cumulative samples exist', () => {
     const account = baseAccount({
       quota: 1000,
-      periodRule: { type: 'custom', startDate: '2026-05-01T00:00:00Z', periodLengthDays: 10, timezone: 'UTC' },
+      periodRule: {
+        type: 'custom',
+        startDate: '2026-05-01T00:00:00Z',
+        periodLengthDays: 10,
+        timezone: 'UTC',
+      },
     });
     // Three readings showing accelerating consumption: 100 at day 1, 250 at day 2, 600 at day 3
     const entries: UsageEntry[] = [
-      { id: '1', accountId: 'a1', recordedAt: '2026-05-02T00:00:00Z', value: 100, mode: 'cumulative', source: 'manual' },
-      { id: '2', accountId: 'a1', recordedAt: '2026-05-03T00:00:00Z', value: 250, mode: 'cumulative', source: 'manual' },
-      { id: '3', accountId: 'a1', recordedAt: '2026-05-04T00:00:00Z', value: 600, mode: 'cumulative', source: 'manual' },
+      {
+        id: '1',
+        accountId: 'a1',
+        recordedAt: '2026-05-02T00:00:00Z',
+        value: 100,
+        mode: 'cumulative',
+        source: 'manual',
+      },
+      {
+        id: '2',
+        accountId: 'a1',
+        recordedAt: '2026-05-03T00:00:00Z',
+        value: 250,
+        mode: 'cumulative',
+        source: 'manual',
+      },
+      {
+        id: '3',
+        accountId: 'a1',
+        recordedAt: '2026-05-04T00:00:00Z',
+        value: 600,
+        mode: 'cumulative',
+        source: 'manual',
+      },
     ];
     const now = new Date('2026-05-04T12:00:00Z');
     const s = computeAccountState({ account, entries, now });
@@ -240,7 +302,14 @@ describe('computeAccountState — projections', () => {
   it('falls back to naive projection when fewer than 3 samples', () => {
     const account = baseAccount({ quota: 1000 });
     const entries: UsageEntry[] = [
-      { id: '1', accountId: 'a1', recordedAt: '2026-05-10T00:00:00Z', value: 200, mode: 'cumulative', source: 'manual' },
+      {
+        id: '1',
+        accountId: 'a1',
+        recordedAt: '2026-05-10T00:00:00Z',
+        value: 200,
+        mode: 'cumulative',
+        source: 'manual',
+      },
     ];
     const now = new Date('2026-05-15T00:00:00Z');
     const s = computeAccountState({ account, entries, now });
@@ -257,12 +326,40 @@ describe('computeAccountState — inter-period comparison', () => {
     });
     // Historical: 3 prior months at 200, 400, 600 cumulative each, plus current.
     const historical: UsageEntry[] = [
-      { id: 'h1', accountId: 'a1', recordedAt: '2026-02-15T00:00:00Z', value: 200, mode: 'cumulative', source: 'manual' },
-      { id: 'h2', accountId: 'a1', recordedAt: '2026-03-15T00:00:00Z', value: 400, mode: 'cumulative', source: 'manual' },
-      { id: 'h3', accountId: 'a1', recordedAt: '2026-04-15T00:00:00Z', value: 600, mode: 'cumulative', source: 'manual' },
+      {
+        id: 'h1',
+        accountId: 'a1',
+        recordedAt: '2026-02-15T00:00:00Z',
+        value: 200,
+        mode: 'cumulative',
+        source: 'manual',
+      },
+      {
+        id: 'h2',
+        accountId: 'a1',
+        recordedAt: '2026-03-15T00:00:00Z',
+        value: 400,
+        mode: 'cumulative',
+        source: 'manual',
+      },
+      {
+        id: 'h3',
+        accountId: 'a1',
+        recordedAt: '2026-04-15T00:00:00Z',
+        value: 600,
+        mode: 'cumulative',
+        source: 'manual',
+      },
     ];
     const current: UsageEntry[] = [
-      { id: 'c1', accountId: 'a1', recordedAt: '2026-05-15T00:00:00Z', value: 500, mode: 'cumulative', source: 'manual' },
+      {
+        id: 'c1',
+        accountId: 'a1',
+        recordedAt: '2026-05-15T00:00:00Z',
+        value: 500,
+        mode: 'cumulative',
+        source: 'manual',
+      },
     ];
     const now = new Date('2026-05-16T00:00:00Z');
     const s = computeAccountState({

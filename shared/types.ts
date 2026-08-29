@@ -20,7 +20,7 @@ export interface PeriodRule {
   dayOfMonth?: number;
   // yearly
   month?: number; // 1..12
-  day?: number;   // 1..31
+  day?: number; // 1..31
   // custom
   startDate?: string; // ISO date
   periodLengthDays?: number;
@@ -40,11 +40,11 @@ export interface Account {
   skillParams?: Record<string, unknown>; // non-secret part
   tolerancePct: number; // e.g. 3 for ±3%
   // Wave 3 additions
-  tags: string[];                 // free-form labels: 'perso', 'pro', 'client-X'
-  syncIntervalMinutes?: number;   // 0 / undefined = no scheduled sync
-  alertThresholdsPct: number[];   // e.g. [50, 80, 100] — fires once per crossing
+  tags: string[]; // free-form labels: 'perso', 'pro', 'client-X'
+  syncIntervalMinutes?: number; // 0 / undefined = no scheduled sync
+  alertThresholdsPct: number[]; // e.g. [50, 80, 100] — fires once per crossing
   lastAlertedThresholdPct?: number; // highest threshold already notified for the current period
-  lastAlertPeriodStart?: string;  // resets thresholds when this changes
+  lastAlertPeriodStart?: string; // resets thresholds when this changes
   createdAt: string;
   updatedAt: string;
 }
@@ -52,9 +52,9 @@ export interface Account {
 export interface UsageEntry {
   id: string;
   accountId: string;
-  recordedAt: string;     // ISO datetime of the reading
-  value: number;          // amount in account.unit
-  mode: EntryMode;        // cumulative or delta
+  recordedAt: string; // ISO datetime of the reading
+  value: number; // amount in account.unit
+  mode: EntryMode; // cumulative or delta
   source: EntrySource;
   comment?: string;
   // For skill imports: optional metadata for traceability
@@ -63,7 +63,7 @@ export interface UsageEntry {
 
 export interface Period {
   start: string; // inclusive
-  end: string;   // exclusive
+  end: string; // exclusive
   type: PeriodType;
   timezone: string;
 }
@@ -73,22 +73,22 @@ export interface AccountState {
   account: Account;
   period: Period;
   totalDays: number;
-  elapsedDays: number;       // can be fractional
-  remainingDays: number;     // can be fractional
+  elapsedDays: number; // can be fractional
+  remainingDays: number; // can be fractional
   consumed: number;
   idealToDate: number;
-  delta: number;             // consumed - idealToDate
-  deltaPct: number;          // delta / quota * 100
+  delta: number; // consumed - idealToDate
+  deltaPct: number; // delta / quota * 100
   status: Status;
   // Indicators required by spec §4.4
-  theoreticalDailyPct: number;     // 100 / totalDays
-  theoreticalDailyAmount: number;  // quota / totalDays
+  theoreticalDailyPct: number; // 100 / totalDays
+  theoreticalDailyAmount: number; // quota / totalDays
   requiredDailyAvgRemaining: number; // (quota - consumed) / remainingDays, can be Infinity / negative
-  paceDeltaDaily: number;            // (consumed/elapsed) - (quota/total)
-  paceDeltaDailyPct: number;         // paceDeltaDaily / theoreticalDailyAmount * 100
+  paceDeltaDaily: number; // (consumed/elapsed) - (quota/total)
+  paceDeltaDailyPct: number; // paceDeltaDaily / theoreticalDailyAmount * 100
   // Forward-looking
-  projectedEndConsumption: number;        // simple: observedDaily × totalDays
-  projectedEndConsumptionRecent: number;  // EWMA / linear regression over recent samples
+  projectedEndConsumption: number; // simple: observedDaily × totalDays
+  projectedEndConsumptionRecent: number; // EWMA / linear regression over recent samples
   projectedExhaustionDate: string | null; // when consumption is forecast to hit quota, or null
   // Inter-period comparison
   previous?: {
@@ -97,7 +97,7 @@ export interface AccountState {
     deltaVsCurrentPct: number; // (consumed - prevConsumed) / prevConsumed * 100
   };
   history?: {
-    averageConsumed: number;   // mean over the last N periods (default 3)
+    averageConsumed: number; // mean over the last N periods (default 3)
     sampleCount: number;
   };
 }
@@ -145,7 +145,12 @@ export interface SkillUsageReport {
 export function isValidSkillReport(x: unknown): x is SkillUsageReport {
   if (!x || typeof x !== 'object') return false;
   const r = x as Partial<SkillUsageReport>;
-  return r.schemaVersion === SKILL_REPORT_SCHEMA_VERSION && !!r.provider && !!r.usage && typeof r.usage.consumed === 'number';
+  return (
+    r.schemaVersion === SKILL_REPORT_SCHEMA_VERSION &&
+    !!r.provider &&
+    !!r.usage &&
+    typeof r.usage.consumed === 'number'
+  );
 }
 
 export interface SkillContext {
@@ -155,7 +160,7 @@ export interface SkillContext {
 }
 
 export interface Skill {
-  id: string;             // 'cursor', 'claude', 'openai', …
+  id: string; // 'cursor', 'claude', 'openai', …
   label: string;
   provider: Provider;
   // Declares which secret keys this skill needs (UI uses this to prompt the user).

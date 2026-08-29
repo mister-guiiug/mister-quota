@@ -16,7 +16,9 @@ export function SyncLog({ onBack }: { onBack: () => void }): JSX.Element {
   return (
     <>
       <div className="row" style={{ justifyContent: 'space-between', marginBottom: 16 }}>
-        <button className="ghost" onClick={onBack}>← Dashboard</button>
+        <button className="ghost" onClick={onBack}>
+          ← Dashboard
+        </button>
         <select value={filterOk} onChange={(e) => setFilterOk(e.target.value as 'all' | 'ok' | 'fail')}>
           <option value="all">Toutes</option>
           <option value="ok">Succès uniquement</option>
@@ -44,10 +46,15 @@ export function SyncLog({ onBack }: { onBack: () => void }): JSX.Element {
                 <td className="mono">{r.accountId}</td>
                 <td>{r.skillId}</td>
                 <td>
-                  <span className={`status ${r.ok ? 'on_track' : 'over_quota'}`}>{r.ok ? 'OK' : 'Échec'}</span>
+                  <span className={`status ${r.ok ? 'on_track' : 'over_quota'}`}>
+                    {r.ok ? 'OK' : 'Échec'}
+                  </span>
                 </td>
                 <td className="muted" style={{ fontSize: 12, maxWidth: 400, whiteSpace: 'pre-wrap' }}>
-                  {r.error ?? (r.reportJson ? `${r.reportJson.slice(0, 120)}${r.reportJson.length > 120 ? '…' : ''}` : '')}
+                  {r.error ??
+                    (r.reportJson
+                      ? `${r.reportJson.slice(0, 120)}${r.reportJson.length > 120 ? '…' : ''}`
+                      : '')}
                 </td>
               </tr>
             ))}

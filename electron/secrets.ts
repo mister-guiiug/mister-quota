@@ -10,7 +10,9 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { safeStorage } from 'electron';
 
-interface SecretsFile { [compositeKey: string]: string } // base64-encoded ciphertext
+interface SecretsFile {
+  [compositeKey: string]: string;
+} // base64-encoded ciphertext
 
 export class SecretsStore {
   private filePath!: string;

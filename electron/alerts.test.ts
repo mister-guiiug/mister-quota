@@ -32,31 +32,43 @@ describe('alert threshold policy', () => {
   });
 
   it('does not re-fire thresholds already notified in the same period', () => {
-    const r = decideCrossings({
-      alertThresholdsPct: [50, 80, 100],
-      lastAlertedThresholdPct: 80,
-      lastAlertPeriodStart: '2026-05-01T00:00:00Z',
-    }, 90, '2026-05-01T00:00:00Z');
+    const r = decideCrossings(
+      {
+        alertThresholdsPct: [50, 80, 100],
+        lastAlertedThresholdPct: 80,
+        lastAlertPeriodStart: '2026-05-01T00:00:00Z',
+      },
+      90,
+      '2026-05-01T00:00:00Z',
+    );
     expect(r.fired).toEqual([]);
     expect(r.newLastFired).toBe(80);
   });
 
   it('fires the next-higher threshold when consumption keeps growing', () => {
-    const r = decideCrossings({
-      alertThresholdsPct: [50, 80, 100],
-      lastAlertedThresholdPct: 80,
-      lastAlertPeriodStart: '2026-05-01T00:00:00Z',
-    }, 100, '2026-05-01T00:00:00Z');
+    const r = decideCrossings(
+      {
+        alertThresholdsPct: [50, 80, 100],
+        lastAlertedThresholdPct: 80,
+        lastAlertPeriodStart: '2026-05-01T00:00:00Z',
+      },
+      100,
+      '2026-05-01T00:00:00Z',
+    );
     expect(r.fired).toEqual([100]);
     expect(r.newLastFired).toBe(100);
   });
 
   it('resets when the period rolls over', () => {
-    const r = decideCrossings({
-      alertThresholdsPct: [50, 80, 100],
-      lastAlertedThresholdPct: 100,
-      lastAlertPeriodStart: '2026-04-01T00:00:00Z',
-    }, 60, '2026-05-01T00:00:00Z');
+    const r = decideCrossings(
+      {
+        alertThresholdsPct: [50, 80, 100],
+        lastAlertedThresholdPct: 100,
+        lastAlertPeriodStart: '2026-04-01T00:00:00Z',
+      },
+      60,
+      '2026-05-01T00:00:00Z',
+    );
     expect(r.fired).toEqual([50]);
     expect(r.newLastFired).toBe(50);
   });

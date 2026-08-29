@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fetchWithRetry, HttpError } from './http';
 
 const realFetch = globalThis.fetch;
-afterEach(() => { globalThis.fetch = realFetch; vi.restoreAllMocks(); });
+afterEach(() => {
+  globalThis.fetch = realFetch;
+  vi.restoreAllMocks();
+});
 
 function jsonResponse(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), {
@@ -36,15 +39,20 @@ describe('fetchWithRetry', () => {
 
   it('throws HttpError after exhausting retries on 5xx', async () => {
     globalThis.fetch = vi.fn(async () => textResponse('boom', 500)) as typeof fetch;
-    await expect(
-      fetchWithRetry({ url: 'https://x', retries: 1, baseBackoffMs: 1 }),
-    ).rejects.toBeInstanceOf(HttpError);
+    await expect(fetchWithRetry({ url: 'https://x', retries: 1, baseBackoffMs: 1 })).rejects.toBeInstanceOf(
+      HttpError,
+    );
   });
 
   it('does not retry on 400-class non-throttle errors', async () => {
     let calls = 0;
-    globalThis.fetch = vi.fn(async () => { calls++; return textResponse('bad', 400); }) as typeof fetch;
-    await expect(fetchWithRetry({ url: 'https://x', retries: 5, baseBackoffMs: 1 })).rejects.toBeInstanceOf(HttpError);
+    globalThis.fetch = vi.fn(async () => {
+      calls++;
+      return textResponse('bad', 400);
+    }) as typeof fetch;
+    await expect(fetchWithRetry({ url: 'https://x', retries: 5, baseBackoffMs: 1 })).rejects.toBeInstanceOf(
+      HttpError,
+    );
     expect(calls).toBe(1);
   });
 

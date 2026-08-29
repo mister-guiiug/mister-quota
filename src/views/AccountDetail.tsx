@@ -27,7 +27,9 @@ export function AccountDetail({ accountId, onBack, onEdit }: Props): JSX.Element
   const entries = entriesMap[accountId] ?? [];
 
   const reload = useCallback(() => refreshOne(accountId), [refreshOne, accountId]);
-  useEffect(() => { reload(); }, [reload]);
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
   if (!state) {
     return (
@@ -43,22 +45,35 @@ export function AccountDetail({ accountId, onBack, onEdit }: Props): JSX.Element
     <>
       <div className="row" style={{ justifyContent: 'space-between', marginBottom: 16 }}>
         <div>
-          <button className="ghost" onClick={onBack}>← Dashboard</button>
+          <button className="ghost" onClick={onBack}>
+            ← Dashboard
+          </button>
         </div>
         <div className="row" style={{ gap: 8 }}>
-          <button className="ghost" onClick={() => onEdit(a)}>Éditer</button>
-          {a.skillId && <button className="primary" onClick={() => syncNow(accountId)}>Synchroniser maintenant</button>}
-          <button className="danger" onClick={async () => {
-            const ok = await confirmDialog({
-              title: 'Supprimer le compte ?',
-              message: `« ${a.name} » et tous ses relevés vont être supprimés définitivement.`,
-              confirmLabel: 'Supprimer',
-              destructive: true,
-            });
-            if (!ok) return;
-            await deleteAccount(accountId);
-            onBack();
-          }}>Supprimer</button>
+          <button className="ghost" onClick={() => onEdit(a)}>
+            Éditer
+          </button>
+          {a.skillId && (
+            <button className="primary" onClick={() => syncNow(accountId)}>
+              Synchroniser maintenant
+            </button>
+          )}
+          <button
+            className="danger"
+            onClick={async () => {
+              const ok = await confirmDialog({
+                title: 'Supprimer le compte ?',
+                message: `« ${a.name} » et tous ses relevés vont être supprimés définitivement.`,
+                confirmLabel: 'Supprimer',
+                destructive: true,
+              });
+              if (!ok) return;
+              await deleteAccount(accountId);
+              onBack();
+            }}
+          >
+            Supprimer
+          </button>
         </div>
       </div>
 
@@ -74,7 +89,10 @@ export function AccountDetail({ accountId, onBack, onEdit }: Props): JSX.Element
           <Stat label="Quota" value={fmtUnitForAccount(a.quota, a)} />
           <Stat label="Consommé" value={fmtUnitForAccount(state.consumed, a)} />
           <Stat label="Idéal à date" value={fmtUnitForAccount(state.idealToDate, a)} />
-          <Stat label="Écart" value={`${state.delta >= 0 ? '+' : ''}${fmtUnitForAccount(state.delta, a)} (${fmtPct(state.deltaPct)})`} />
+          <Stat
+            label="Écart"
+            value={`${state.delta >= 0 ? '+' : ''}${fmtUnitForAccount(state.delta, a)} (${fmtPct(state.deltaPct)})`}
+          />
           <Stat label="Statut" value={state.status} />
         </div>
         <div className="row" style={{ gap: 24, marginTop: 12 }}>
@@ -82,7 +100,10 @@ export function AccountDetail({ accountId, onBack, onEdit }: Props): JSX.Element
           <Stat label="Conso théorique / jour" value={fmtUnitForAccount(state.theoreticalDailyAmount, a)} />
           <Stat label="Requis / jour restant" value={fmtUnitForAccount(state.requiredDailyAvgRemaining, a)} />
           <Stat label="Jours restants" value={fmtDays(state.remainingDays)} />
-          <Stat label="Vitesse vs cible" value={`${state.paceDeltaDailyPct >= 0 ? '+' : ''}${state.paceDeltaDailyPct.toFixed(1)}%/jour`} />
+          <Stat
+            label="Vitesse vs cible"
+            value={`${state.paceDeltaDailyPct >= 0 ? '+' : ''}${state.paceDeltaDailyPct.toFixed(1)}%/jour`}
+          />
           <Stat label="Projection fin période" value={fmtUnitForAccount(state.projectedEndConsumption, a)} />
         </div>
         <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
@@ -97,16 +118,28 @@ export function AccountDetail({ accountId, onBack, onEdit }: Props): JSX.Element
             {state.previous && (
               <>
                 <Stat label="Période précédente" value={fmtUnitForAccount(state.previous.consumed, a)} />
-                <Stat label="Δ vs période courante" value={`${state.previous.deltaVsCurrentPct >= 0 ? '+' : ''}${state.previous.deltaVsCurrentPct.toFixed(1)}%`} />
+                <Stat
+                  label="Δ vs période courante"
+                  value={`${state.previous.deltaVsCurrentPct >= 0 ? '+' : ''}${state.previous.deltaVsCurrentPct.toFixed(1)}%`}
+                />
               </>
             )}
             {state.history && state.history.sampleCount > 0 && (
-              <Stat label={`Moyenne ${state.history.sampleCount} dern. périodes`} value={fmtUnitForAccount(state.history.averageConsumed, a)} />
+              <Stat
+                label={`Moyenne ${state.history.sampleCount} dern. périodes`}
+                value={fmtUnitForAccount(state.history.averageConsumed, a)}
+              />
             )}
             {state.projectedExhaustionDate && (
-              <Stat label="Date prévue d'épuisement (régression)" value={fmtDate(state.projectedExhaustionDate)} />
+              <Stat
+                label="Date prévue d'épuisement (régression)"
+                value={fmtDate(state.projectedExhaustionDate)}
+              />
             )}
-            <Stat label="Projection fin (régression)" value={fmtUnitForAccount(state.projectedEndConsumptionRecent, a)} />
+            <Stat
+              label="Projection fin (régression)"
+              value={fmtUnitForAccount(state.projectedEndConsumptionRecent, a)}
+            />
           </div>
         </div>
       )}
@@ -116,16 +149,33 @@ export function AccountDetail({ accountId, onBack, onEdit }: Props): JSX.Element
           <h3>Relevés</h3>
           <div className="row" style={{ gap: 8 }}>
             <ImportCsvButton accountId={a.id} onImported={reload} />
-            <button className="primary" onClick={() => setShowAdd((v) => !v)}>{showAdd ? 'Annuler' : '+ Saisie manuelle'}</button>
+            <button className="primary" onClick={() => setShowAdd((v) => !v)}>
+              {showAdd ? 'Annuler' : '+ Saisie manuelle'}
+            </button>
           </div>
         </div>
-        {showAdd && <AddEntryForm accountId={accountId} onAdded={() => { setShowAdd(false); reload(); }} />}
+        {showAdd && (
+          <AddEntryForm
+            accountId={accountId}
+            onAdded={() => {
+              setShowAdd(false);
+              reload();
+            }}
+          />
+        )}
         {entries.length === 0 ? (
           <p className="muted">Aucun relevé pour ce compte.</p>
         ) : (
           <table>
             <thead>
-              <tr><th>Date</th><th>Valeur</th><th>Mode</th><th>Source</th><th>Commentaire</th><th></th></tr>
+              <tr>
+                <th>Date</th>
+                <th>Valeur</th>
+                <th>Mode</th>
+                <th>Source</th>
+                <th>Commentaire</th>
+                <th></th>
+              </tr>
             </thead>
             <tbody>
               {entries.map((e) => (
@@ -135,10 +185,22 @@ export function AccountDetail({ accountId, onBack, onEdit }: Props): JSX.Element
                   <td>{e.mode}</td>
                   <td>{e.source}</td>
                   <td className="muted">{e.comment ?? ''}</td>
-                  <td><button className="danger" onClick={async () => {
-                    const ok = await confirmDialog({ title: 'Supprimer ce relevé ?', message: `${fmtDate(e.recordedAt)} — ${fmtUnitForAccount(e.value, a)}`, confirmLabel: 'Supprimer', destructive: true });
-                    if (ok) await useAppStore.getState().deleteEntry(e.id, a.id);
-                  }}>Suppr.</button></td>
+                  <td>
+                    <button
+                      className="danger"
+                      onClick={async () => {
+                        const ok = await confirmDialog({
+                          title: 'Supprimer ce relevé ?',
+                          message: `${fmtDate(e.recordedAt)} — ${fmtUnitForAccount(e.value, a)}`,
+                          confirmLabel: 'Supprimer',
+                          destructive: true,
+                        });
+                        if (ok) await useAppStore.getState().deleteEntry(e.id, a.id);
+                      }}
+                    >
+                      Suppr.
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -165,43 +227,74 @@ function AddEntryForm({ accountId, onAdded }: { accountId: string; onAdded: () =
   const [comment, setComment] = useState('');
 
   return (
-    <form className="stack" onSubmit={async (e) => {
-      e.preventDefault();
-      await useAppStore.getState().addEntry({
-        id: crypto.randomUUID(), accountId,
-        recordedAt: new Date(recordedAt).toISOString(),
-        value: Number(value), mode, source: 'manual',
-        comment: comment || undefined,
-      });
-      onAdded();
-    }}>
+    <form
+      className="stack"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        await useAppStore.getState().addEntry({
+          id: crypto.randomUUID(),
+          accountId,
+          recordedAt: new Date(recordedAt).toISOString(),
+          value: Number(value),
+          mode,
+          source: 'manual',
+          comment: comment || undefined,
+        });
+        onAdded();
+      }}
+    >
       <div className="row-form">
-        <label>Date / heure
-          <input type="datetime-local" value={recordedAt} onChange={(e) => setRecordedAt(e.target.value)} required />
+        <label>
+          Date / heure
+          <input
+            type="datetime-local"
+            value={recordedAt}
+            onChange={(e) => setRecordedAt(e.target.value)}
+            required
+          />
         </label>
-        <label>Valeur
-          <input type="number" step="any" value={value} onChange={(e) => setValue(Number(e.target.value))} required />
+        <label>
+          Valeur
+          <input
+            type="number"
+            step="any"
+            value={value}
+            onChange={(e) => setValue(Number(e.target.value))}
+            required
+          />
         </label>
       </div>
-      <label>Mode
+      <label>
+        Mode
         <select value={mode} onChange={(e) => setMode(e.target.value as EntryMode)}>
           <option value="cumulative">Cumulatif (total depuis début de période)</option>
           <option value="delta">Delta (ajout depuis le dernier relevé)</option>
         </select>
       </label>
-      <label>Commentaire
+      <label>
+        Commentaire
         <input value={comment} onChange={(e) => setComment(e.target.value)} />
       </label>
-      <button className="primary" type="submit">Ajouter</button>
+      <button className="primary" type="submit">
+        Ajouter
+      </button>
     </form>
   );
 }
 
-function ImportCsvButton({ accountId, onImported }: { accountId: string; onImported: () => void }): JSX.Element {
+function ImportCsvButton({
+  accountId,
+  onImported,
+}: {
+  accountId: string;
+  onImported: () => void;
+}): JSX.Element {
   const fileInputRef = useRef<HTMLInputElement>(null);
   return (
     <>
-      <button className="ghost" onClick={() => fileInputRef.current?.click()}>↑ Importer CSV</button>
+      <button className="ghost" onClick={() => fileInputRef.current?.click()}>
+        ↑ Importer CSV
+      </button>
       <input
         ref={fileInputRef}
         type="file"
@@ -213,7 +306,10 @@ function ImportCsvButton({ accountId, onImported }: { accountId: string; onImpor
           const text = await file.text();
           const res = await window.api.importEntriesCsv(accountId, text);
           if (res.inserted > 0) toast.success(`${res.inserted} relevés importés`);
-          if (res.errors.length > 0) toast.error(`${res.errors.length} erreurs : ${res.errors.slice(0, 3).join(' · ')}${res.errors.length > 3 ? '…' : ''}`);
+          if (res.errors.length > 0)
+            toast.error(
+              `${res.errors.length} erreurs : ${res.errors.slice(0, 3).join(' · ')}${res.errors.length > 3 ? '…' : ''}`,
+            );
           if (e.target) e.target.value = '';
           onImported();
         }}
@@ -224,7 +320,9 @@ function ImportCsvButton({ accountId, onImported }: { accountId: string; onImpor
 
 // ── Tiny inline SVG chart: real cumulative reading over the period vs ideal line ──
 function Chart({ state }: { state: AccountState }): JSX.Element {
-  const W = 600, H = 220, P = 24;
+  const W = 600,
+    H = 220,
+    P = 24;
   const startMs = new Date(state.period.start).getTime();
   const endMs = new Date(state.period.end).getTime();
   const xFor = (ms: number) => P + ((ms - startMs) / (endMs - startMs)) * (W - 2 * P);
@@ -248,7 +346,9 @@ function Chart({ state }: { state: AccountState }): JSX.Element {
       {/* real */}
       <path d={realPath} stroke="var(--accent)" strokeWidth="2" fill="none" />
       <circle cx={xFor(nowMs)} cy={yFor(state.consumed)} r="4" fill="var(--accent)" />
-      <text x={W - P} y={P} textAnchor="end" fontSize="11" fill="var(--fg-dim)">— idéal · — réel</text>
+      <text x={W - P} y={P} textAnchor="end" fontSize="11" fill="var(--fg-dim)">
+        — idéal · — réel
+      </text>
     </svg>
   );
 }

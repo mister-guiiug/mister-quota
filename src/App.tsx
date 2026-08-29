@@ -23,7 +23,10 @@ export function App(): JSX.Element {
 
   useEffect(() => {
     if (typeof window !== 'undefined' && !window.api) {
-      import('./previewShim').then((m) => { m.installPreviewShim(); refreshAll(); });
+      import('./previewShim').then((m) => {
+        m.installPreviewShim();
+        refreshAll();
+      });
     } else {
       refreshAll();
     }
@@ -42,9 +45,19 @@ export function App(): JSX.Element {
     <>
       <aside className="sidebar">
         <h1>MISTER QUOTA</h1>
-        <button className={view.kind === 'dashboard' ? 'active' : ''} onClick={() => setView({ kind: 'dashboard' })}>Dashboard</button>
+        <button
+          className={view.kind === 'dashboard' ? 'active' : ''}
+          onClick={() => setView({ kind: 'dashboard' })}
+        >
+          Dashboard
+        </button>
         <button onClick={() => setView({ kind: 'new' })}>+ Nouveau compte</button>
-        <button className={view.kind === 'syncLog' ? 'active' : ''} onClick={() => setView({ kind: 'syncLog' })}>Journal des syncs</button>
+        <button
+          className={view.kind === 'syncLog' ? 'active' : ''}
+          onClick={() => setView({ kind: 'syncLog' })}
+        >
+          Journal des syncs
+        </button>
         <div style={{ flex: 1 }} />
         <button onClick={() => handleExport('json')}>Export JSON</button>
         <button onClick={() => handleExport('csv')}>Export CSV</button>
@@ -59,10 +72,17 @@ export function App(): JSX.Element {
             />
           )}
           {view.kind === 'new' && (
-            <AccountForm onSaved={() => setView({ kind: 'dashboard' })} onCancel={() => setView({ kind: 'dashboard' })} />
+            <AccountForm
+              onSaved={() => setView({ kind: 'dashboard' })}
+              onCancel={() => setView({ kind: 'dashboard' })}
+            />
           )}
           {view.kind === 'edit' && (
-            <AccountForm initial={view.account} onSaved={() => setView({ kind: 'dashboard' })} onCancel={() => setView({ kind: 'dashboard' })} />
+            <AccountForm
+              initial={view.account}
+              onSaved={() => setView({ kind: 'dashboard' })}
+              onCancel={() => setView({ kind: 'dashboard' })}
+            />
           )}
           {view.kind === 'detail' && (
             <AccountDetail
@@ -71,9 +91,7 @@ export function App(): JSX.Element {
               onEdit={(a) => setView({ kind: 'edit', account: a })}
             />
           )}
-          {view.kind === 'syncLog' && (
-            <SyncLog onBack={() => setView({ kind: 'dashboard' })} />
-          )}
+          {view.kind === 'syncLog' && <SyncLog onBack={() => setView({ kind: 'dashboard' })} />}
         </ErrorBoundary>
       </main>
 

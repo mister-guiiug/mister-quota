@@ -17,9 +17,12 @@ export class Logger {
     this.file = path.join(this.dir, 'app.log');
   }
 
-  info(msg: string): void { this.write('INFO ', msg); }
+  info(msg: string): void {
+    this.write('INFO ', msg);
+  }
   error(msg: string, err?: unknown): void {
-    const trail = err instanceof Error ? `\n${err.stack ?? err.message}` : err ? ` ${JSON.stringify(err)}` : '';
+    const trail =
+      err instanceof Error ? `\n${err.stack ?? err.message}` : err ? ` ${JSON.stringify(err)}` : '';
     this.write('ERROR', msg + trail);
   }
 
