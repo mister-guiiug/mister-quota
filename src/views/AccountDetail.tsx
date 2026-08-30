@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Account, AccountState, EntryMode } from '@shared/types';
-import { fmtDate, fmtDays, fmtPct, fmtUnitForAccount } from '../format';
+import { formatDateTime } from '@mister-guiiug/dev-wpa-config/format';
+import { fmtDays, fmtPct, fmtUnitForAccount } from '../format';
 import { useAppStore } from '../store';
 import { confirmDialog } from '../components/ConfirmDialog';
 import { toast } from '../toast';
@@ -107,7 +108,7 @@ export function AccountDetail({ accountId, onBack, onEdit }: Props): JSX.Element
           <Stat label="Projection fin période" value={fmtUnitForAccount(state.projectedEndConsumption, a)} />
         </div>
         <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
-          Période courante : {fmtDate(state.period.start)} → {fmtDate(state.period.end)}
+          Période courante : {formatDateTime(state.period.start)} → {formatDateTime(state.period.end)}
         </div>
       </div>
 
@@ -133,7 +134,7 @@ export function AccountDetail({ accountId, onBack, onEdit }: Props): JSX.Element
             {state.projectedExhaustionDate && (
               <Stat
                 label="Date prévue d'épuisement (régression)"
-                value={fmtDate(state.projectedExhaustionDate)}
+                value={formatDateTime(state.projectedExhaustionDate)}
               />
             )}
             <Stat
@@ -180,7 +181,7 @@ export function AccountDetail({ accountId, onBack, onEdit }: Props): JSX.Element
             <tbody>
               {entries.map((e) => (
                 <tr key={e.id}>
-                  <td className="mono">{fmtDate(e.recordedAt)}</td>
+                  <td className="mono">{formatDateTime(e.recordedAt)}</td>
                   <td className="mono">{fmtUnitForAccount(e.value, a)}</td>
                   <td>{e.mode}</td>
                   <td>{e.source}</td>
@@ -191,7 +192,7 @@ export function AccountDetail({ accountId, onBack, onEdit }: Props): JSX.Element
                       onClick={async () => {
                         const ok = await confirmDialog({
                           title: 'Supprimer ce relevé ?',
-                          message: `${fmtDate(e.recordedAt)} — ${fmtUnitForAccount(e.value, a)}`,
+                          message: `${formatDateTime(e.recordedAt)} — ${fmtUnitForAccount(e.value, a)}`,
                           confirmLabel: 'Supprimer',
                           destructive: true,
                         });
