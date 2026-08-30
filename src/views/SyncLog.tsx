@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fmtDate } from '../format';
+import { formatDateTime } from '@mister-guiiug/dev-wpa-config/format';
 import type { SkillRunRow } from '@shared/ipc';
 
 export function SyncLog({ onBack }: { onBack: () => void }): JSX.Element {
@@ -42,7 +42,7 @@ export function SyncLog({ onBack }: { onBack: () => void }): JSX.Element {
           <tbody>
             {filtered.map((r) => (
               <tr key={r.id}>
-                <td className="mono">{fmtDate(r.startedAt)}</td>
+                <td className="mono">{formatDateTime(r.startedAt)}</td>
                 <td className="mono">{r.accountId}</td>
                 <td>{r.skillId}</td>
                 <td>

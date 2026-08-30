@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Account, AccountState } from '@shared/types';
-import { fmtDays, fmtPct, fmtUnitForAccount } from '../format';
+import { fmtDays, fmtPct, fmtUnit, fmtUnitForAccount } from '../format';
 import { useAppStore } from '../store';
 
 type SortKey = 'name' | 'most_behind' | 'most_ahead';
@@ -114,31 +114,16 @@ export function Dashboard({ onOpen, onEdit }: Props): JSX.Element {
             Budget agrégé ({filtered!.filter((s) => s.account.unit === 'currency').length} comptes)
           </h3>
           <div className="row" style={{ gap: 24, marginTop: 8 }}>
-            <Stat
-              label="Quota total"
-              value={new Intl.NumberFormat('fr-FR', { style: 'currency', currency: budget.currency }).format(
-                budget.quota,
-              )}
-            />
-            <Stat
-              label="Consommé"
-              value={new Intl.NumberFormat('fr-FR', { style: 'currency', currency: budget.currency }).format(
-                budget.consumed,
-              )}
-            />
-            <Stat
-              label="Idéal à date"
-              value={new Intl.NumberFormat('fr-FR', { style: 'currency', currency: budget.currency }).format(
-                budget.ideal,
-              )}
-            />
+            <Stat label="Quota total" value={fmtUnit(budget.quota, 'currency', budget.currency)} />
+            <Stat label="Consommé" value={fmtUnit(budget.consumed, 'currency', budget.currency)} />
+            <Stat label="Idéal à date" value={fmtUnit(budget.ideal, 'currency', budget.currency)} />
             <Stat
               label="Δ vs idéal"
-              value={new Intl.NumberFormat('fr-FR', {
-                style: 'currency',
-                currency: budget.currency,
-                signDisplay: 'always',
-              }).format(budget.consumed - budget.ideal)}
+              value={`${budget.consumed - budget.ideal >= 0 ? '+' : ''}${fmtUnit(
+                budget.consumed - budget.ideal,
+                'currency',
+                budget.currency,
+              )}`}
             />
           </div>
         </div>
