@@ -3,9 +3,9 @@ import { Dashboard } from './views/Dashboard';
 import { AccountForm } from './views/AccountForm';
 import { AccountDetail } from './views/AccountDetail';
 import { SyncLog } from './views/SyncLog';
+import { ObservabilityBoundary } from '@mister-guiiug/dev-wpa-config/react/error-boundary';
 import { Toaster } from './components/Toaster';
 import { ConfirmHost } from './components/ConfirmDialog';
-import { ErrorBoundary } from './components/ErrorBoundary';
 import { useAppStore } from './store';
 import { toast } from './toast';
 import type { Account } from '@shared/types';
@@ -64,7 +64,14 @@ export function App(): JSX.Element {
       </aside>
 
       <main className="main">
-        <ErrorBoundary>
+        {/* Frontière d'erreur du socle : elle journalise le crash (tampon
+            circulaire local) et affiche une référence de session à citer au
+            support. Le renderer n'avait jusqu'ici qu'un console.error, invisible
+            dans une application empaquetée. */}
+        <ObservabilityBoundary
+          title="Une erreur est survenue"
+          onError={(error, info) => console.error('Renderer error boundary caught:', error, info)}
+        >
           {view.kind === 'dashboard' && (
             <Dashboard
               onOpen={(id) => setView({ kind: 'detail', accountId: id })}
@@ -92,7 +99,7 @@ export function App(): JSX.Element {
             />
           )}
           {view.kind === 'syncLog' && <SyncLog onBack={() => setView({ kind: 'dashboard' })} />}
-        </ErrorBoundary>
+        </ObservabilityBoundary>
       </main>
 
       <Toaster />

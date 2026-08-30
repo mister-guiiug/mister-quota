@@ -30,6 +30,26 @@ test('dashboard shows seeded accounts and updates after a manual entry', async (
   await expect(page.getByText('Relevé ajouté')).toBeVisible();
 });
 
+// Depuis l'adoption du ConfirmDialog du socle, la boîte de suppression a un
+// nom accessible et le focus initial sur Annuler. Playwright est le seul
+// harnais de ce dépôt capable d'exercer un composant React (vitest y tourne en
+// environnement `node`) : c'est donc ici que l'usage se vérifie.
+test('la confirmation de suppression est nommée et ne détruit pas sur Entrée', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('heading', { name: /^Claude Pro/ }).click();
+  await page.getByRole('button', { name: 'Supprimer', exact: true }).click();
+
+  const dialog = page.getByRole('alertdialog', { name: 'Supprimer le compte ?' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Annuler' })).toBeFocused();
+
+  // Entrée porte donc sur Annuler, pas sur la suppression : le compte survit.
+  await page.keyboard.press('Enter');
+  await expect(dialog).toBeHidden();
+  await page.getByRole('button', { name: '← Dashboard' }).click();
+  await expect(page.getByText('Claude Pro')).toBeVisible();
+});
+
 test('tag filter narrows the visible accounts', async ({ page }) => {
   await page.goto('/');
   // Wait for the tag select to mount (it only appears when accounts have tags).

@@ -14,6 +14,26 @@ Application desktop multiplateforme (Windows / macOS / Linux) pour suivre la con
 | Dates / TZ         | `date-fns` + `date-fns-tz`                                | Calcul de période robuste aux fuseaux et aux mois courts (clamp 31 → 28/30).                                                                                                                                          |
 | Tests              | `vitest`                                                  | Suite focalisée sur les fonctions de calcul et la résolution de période.                                                                                                                                              |
 
+### Socle famille
+
+L'app consomme `@mister-guiiug/dev-wpa-config` **sans monter la stack PWA du socle**
+(React 19, Vite 8, Vitest 4, ESLint 9) : seuls ses modules indépendants du framework
+sont utilisés, d'où `legacy-peer-deps=true` dans `.npmrc`.
+
+Elle importe aussi **`components.css`**, l'habillage des composants `/react`, alors
+qu'elle n'a **pas Tailwind** — ce qui était jusqu'ici la raison de s'en passer. La
+feuille ne contient aucune directive Tailwind, tous ses `var()` ont un repli et tous
+ses sélecteurs sont portés par `[data-dwc=…]` : elle ne peut donc toucher aucun
+élément existant. Les quinze jetons `--dwc-*` sont câblés sur la palette de
+`src/styles.css`, qui n'est pas « layered » et l'emporte donc sur
+`@layer components` sans `!important` — les reprises d'identité (pile de
+notifications en bas à droite) sont regroupées en fin de fichier.
+
+Composants pris au socle : `ObservabilityBoundary` (`src/App.tsx`), `ConfirmDialog`
+(derrière la file promise de `src/components/ConfirmDialog.tsx`), `ToastViewport`
+(`src/components/Toaster.tsx`, la file restant dans `src/toast.ts` parce que
+`store.ts` notifie hors de React).
+
 ---
 
 ## Démarrage rapide
@@ -190,13 +210,13 @@ L'architecture sépare strictement le code partagé (`shared/`) du code spécifi
 
 ### Déjà livré (waves 1 → 6)
 
-|            |                                                                                                                                                                                               |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Wave 1** | ESLint + Prettier, GitHub Actions CI (Node 20.x / 22.x, lint + typecheck + test + build + e2e), tests d'intégration `Storage`.                                                                |
-| **Wave 2** | Schema-versioning du `SkillUsageReport`, projection par régression linéaire (`projectedEndConsumptionRecent`, `projectedExhaustionDate`), comparaison inter-périodes (`previous`, `history`). |
-| **Wave 3** | `Account.tags`, `syncIntervalMinutes`, `alertThresholdsPct` ; migration SQLite v2 forward-only ; tag chips + budget € agrégé sur le dashboard.                                                |
-| **Wave 4** | Store Zustand, toaster custom, `ConfirmDialog`, `ErrorBoundary`, skeletons de chargement ; remplacement de tous les `alert()` / `confirm()` natifs.                                           |
-| **Wave 5** | Import CSV (header-detection + erreurs par ligne), évaluateur d'alertes OS Notifications avec anti-spam intra-période, scheduler par compte, tray icon avec menu trié.                        |
-| **Wave 6** | `fetchWithRetry` (timeout + backoff exponentiel + Retry-After), Playwright e2e en mode preview-shim, scaffolds `electron-updater` (env-gated) et `runPkceFlow`.                               |
+|            |                                                                                                                                                                                                                                    |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Wave 1** | ESLint + Prettier, GitHub Actions CI (Node 20.x / 22.x, lint + typecheck + test + build + e2e), tests d'intégration `Storage`.                                                                                                     |
+| **Wave 2** | Schema-versioning du `SkillUsageReport`, projection par régression linéaire (`projectedEndConsumptionRecent`, `projectedExhaustionDate`), comparaison inter-périodes (`previous`, `history`).                                      |
+| **Wave 3** | `Account.tags`, `syncIntervalMinutes`, `alertThresholdsPct` ; migration SQLite v2 forward-only ; tag chips + budget € agrégé sur le dashboard.                                                                                     |
+| **Wave 4** | Store Zustand, toaster custom, `ConfirmDialog`, `ErrorBoundary`, skeletons de chargement ; remplacement de tous les `alert()` / `confirm()` natifs. _(Les trois composants sont depuis passés au socle — voir « Socle famille ».)_ |
+| **Wave 5** | Import CSV (header-detection + erreurs par ligne), évaluateur d'alertes OS Notifications avec anti-spam intra-période, scheduler par compte, tray icon avec menu trié.                                                             |
+| **Wave 6** | `fetchWithRetry` (timeout + backoff exponentiel + Retry-After), Playwright e2e en mode preview-shim, scaffolds `electron-updater` (env-gated) et `runPkceFlow`.                                                                    |
 
 Licence : MIT.

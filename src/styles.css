@@ -1,3 +1,22 @@
+/*
+ * Habillage des composants du socle. Cette application n'a PAS Tailwind, et
+ * c'était la raison invoquée pour ne pas prendre `components.css` — la feuille
+ * n'en a en réalité pas besoin :
+ *
+ *   - aucune directive Tailwind (`@apply`, `@tailwind`, `theme()`) ;
+ *   - `@layer components` est du CSS natif, et le CSS non « layered » de ce
+ *     fichier l'emporte donc systématiquement : importer ne verrouille rien ;
+ *   - tous les sélecteurs sont portés par `[data-dwc=…]`, aucun élément
+ *     existant de l'app n'en porte : collision impossible ;
+ *   - chaque `var()` a un repli, y compris l'échelle fluide du preset
+ *     (`--text-fluid-*`, `--spacing-fluid-*`) qui n'est pas dans le contrat.
+ *
+ * On ne prend PAS `tokens.css` : il livre un thème clair/sombre complet qui
+ * lutterait avec la palette figée sombre ci-dessous. Les quinze jetons du
+ * contrat sont câblés à la main sur cette palette, juste après.
+ */
+@import '@mister-guiiug/dev-wpa-config/components.css';
+
 :root {
   color-scheme: light dark;
   --bg: #0f1115;
@@ -11,6 +30,29 @@
   --bad: #ef5e5e;
   --border: #2a3140;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+  /* Contrat de couleur du socle, câblé sur la palette ci-dessus. Sans ce bloc
+     les composants retomberaient sur les couleurs système (Canvas/CanvasText),
+     donc en clair sur un OS clair — alors que l'app est en sombre figé. */
+  --dwc-surface: var(--bg-elev);
+  --dwc-surface-2: var(--bg-elev-2);
+  --dwc-text: var(--fg);
+  --dwc-text-soft: var(--fg-dim);
+  --dwc-border: var(--border);
+  /* Contour qui DÉSIGNE un contrôle : doit tenir 3:1 (WCAG 1.4.11), ce que
+     --border (#2a3140 sur #161a22) ne fait pas. */
+  --dwc-border-strong: var(--fg-dim);
+  --dwc-primary: var(--accent);
+  --dwc-primary-contrast: #0a0e16;
+  --dwc-primary-soft: rgba(110, 168, 255, 0.15);
+  --dwc-success: var(--good);
+  --dwc-warning: var(--warn);
+  --dwc-danger: var(--bad);
+  --dwc-info: var(--accent);
+  /* 7px : les boutons du socle tombent au rayon des boutons de l'app (6px) et
+     le panneau, qui applique un facteur 1,4, à celui des cartes (10px). */
+  --dwc-radius: 7px;
+  --dwc-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
 }
 
 * {
@@ -268,84 +310,33 @@ table th {
   font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
 }
 
-/* Toaster */
-.toaster {
-  position: fixed;
-  right: 20px;
-  bottom: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  z-index: 1000;
-  pointer-events: none;
+/*
+ * Reprises sur l'habillage du socle. Aucune n'utilise `!important` : ce fichier
+ * n'est pas « layered », il l'emporte donc de plein droit sur
+ * `@layer components`. C'est la démonstration que l'import ne verrouille rien.
+ */
+
+/* La pile de notifications du socle est en bas, pleine largeur et centrée — un
+   réglage pensé pour le mobile. Cette fenêtre a une barre latérale fixe : on la
+   ramène en bas à droite, comme elle l'était. */
+[data-dwc='toast-viewport'] {
+  inset-inline: auto 0;
+  padding: 20px;
 }
-.toast {
-  padding: 10px 14px;
-  border-radius: 8px;
+[data-dwc='toast-region'] {
+  align-items: flex-end;
+}
+[data-dwc='toast'] {
+  width: max-content;
   min-width: 220px;
   max-width: 420px;
-  cursor: pointer;
-  pointer-events: auto;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
-  animation: slide-in 180ms ease-out;
-  font-size: 13px;
-}
-.toast.success {
-  background: rgba(86, 198, 106, 0.18);
-  border: 1px solid var(--good);
-  color: var(--good);
-}
-.toast.error {
-  background: rgba(239, 94, 94, 0.18);
-  border: 1px solid var(--bad);
-  color: var(--bad);
-}
-.toast.info {
-  background: rgba(110, 168, 255, 0.18);
-  border: 1px solid var(--accent);
-  color: var(--accent);
-}
-@keyframes slide-in {
-  from {
-    transform: translateY(8px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
 }
 
-/* Confirm modal */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1100;
-}
-.modal {
-  background: var(--bg-elev);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 20px;
-  min-width: 360px;
-  max-width: 520px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-}
-.modal h3 {
-  margin: 0 0 8px;
-  font-size: 16px;
-}
-.modal p {
-  margin: 0 0 16px;
-  color: var(--fg-dim);
-}
-.primary-destructive {
-  background: var(--bad) !important;
-  color: white !important;
+/* Frontière d'erreur : le repli du socle est une bannière. Ici elle remplace le
+   contenu de <main>, on lui redonne l'aération de l'ancien écran de secours. */
+[data-dwc='error-boundary'] {
+  margin: 32px auto;
+  max-width: 640px;
 }
 
 /* Loading skeleton */
