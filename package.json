@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite",
     "dev:electron": "tsc -p electron/tsconfig.json && concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "build": "tsc -p electron/tsconfig.json && vite build",
+    "build": "tsc -p electron/tsconfig.json && vite build && pwa-bundle-budget",
     "build:electron": "npm run build && electron-builder",
     "preview": "vite preview",
     "test": "vitest run",
@@ -19,6 +19,9 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,css,md,json}\"",
     "typecheck": "tsc --noEmit && tsc -p electron/tsconfig.json --noEmit",
     "e2e": "playwright test"
+  },
+  "bundleBudget": {
+    "totalGzipKb": 75
   },
   "dependencies": {
     "date-fns": "^4.1.0",
