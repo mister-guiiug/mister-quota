@@ -13,11 +13,11 @@
 //   « — » pour une valeur non finie ;
 // - fmtDays : heures sous un jour, jours au-delà.
 
-import { formatCurrency, formatNumber } from '@mister-guiiug/dev-wpa-config/format';
+import { formatCurrency, formatNumber, getDefaultLocale } from '@mister-guiiug/dev-wpa-config/format';
 import type { Account, Unit } from '@shared/types';
 
 const COMPACT: Intl.NumberFormatOptions = { notation: 'compact', maximumFractionDigits: 1 };
-const PCT = new Intl.NumberFormat('fr-FR', { style: 'percent', maximumFractionDigits: 1 });
+const PCT = new Intl.NumberFormat(getDefaultLocale(), { style: 'percent', maximumFractionDigits: 1 });
 
 export function fmtUnit(value: number, unit: Unit, currency?: string): string {
   if (!Number.isFinite(value)) return '∞';

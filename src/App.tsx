@@ -9,6 +9,9 @@ import { ConfirmHost } from './components/ConfirmDialog';
 import { useAppStore } from './store';
 import { toast } from './toast';
 import type { Account } from '@shared/types';
+import { createLogger } from '@mister-guiiug/dev-wpa-config/logger';
+
+const log = createLogger('App');
 
 type View =
   | { kind: 'dashboard' }
@@ -70,7 +73,7 @@ export function App(): JSX.Element {
             dans une application empaquetée. */}
         <ObservabilityBoundary
           title="Une erreur est survenue"
-          onError={(error, info) => console.error('Renderer error boundary caught:', error, info)}
+          onError={(error, info) => log.error('Renderer error boundary caught', { error, details: [info] })}
         >
           {view.kind === 'dashboard' && (
             <Dashboard
