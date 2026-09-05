@@ -3,13 +3,13 @@ import { Dashboard } from './views/Dashboard';
 import { AccountForm } from './views/AccountForm';
 import { AccountDetail } from './views/AccountDetail';
 import { SyncLog } from './views/SyncLog';
-import { ObservabilityBoundary } from '@mister-guiiug/dev-wpa-config/react/error-boundary';
+import { ObservabilityBoundary } from '@mister-guiiug/dev-pwa-config/react/error-boundary';
 import { Toaster } from './components/Toaster';
 import { ConfirmHost } from './components/ConfirmDialog';
 import { useAppStore } from './store';
 import { toast } from './toast';
 import type { Account } from '@shared/types';
-import { createLogger } from '@mister-guiiug/dev-wpa-config/logger';
+import { createLogger } from '@mister-guiiug/dev-pwa-config/logger';
 
 const log = createLogger('App');
 

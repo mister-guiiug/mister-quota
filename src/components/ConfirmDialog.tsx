@@ -14,7 +14,7 @@
 //    avec le composant.
 
 import { useEffect, useState } from 'react';
-import { ConfirmDialog } from '@mister-guiiug/dev-wpa-config/react/confirm-dialog';
+import { ConfirmDialog } from '@mister-guiiug/dev-pwa-config/react/confirm-dialog';
 
 interface ConfirmRequest {
   id: string;

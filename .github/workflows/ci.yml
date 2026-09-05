@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [main]
 
-# packages: read — @mister-guiiug/dev-wpa-config vient de GitHub Packages
+# packages: read — @mister-guiiug/dev-pwa-config vient de GitHub Packages
 # (même motif que le setup-pwa du socle : registry-url + scope sur setup-node,
 # NODE_AUTH_TOKEN sur npm ci).
 permissions:

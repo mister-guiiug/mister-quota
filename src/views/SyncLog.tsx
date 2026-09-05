@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { formatDateTime } from '@mister-guiiug/dev-wpa-config/format';
+import { formatDateTime } from '@mister-guiiug/dev-pwa-config/format';
 import type { SkillRunRow } from '@shared/ipc';
 
 export function SyncLog({ onBack }: { onBack: () => void }): JSX.Element {

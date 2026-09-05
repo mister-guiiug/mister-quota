@@ -1,7 +1,7 @@
 // Number/date formatting helpers shared across views.
 //
 // Rattaché au socle famille : monnaie et nombres compacts délèguent à
-// @mister-guiiug/dev-wpa-config/format (locale par défaut fr-FR, instances
+// @mister-guiiug/dev-pwa-config/format (locale par défaut fr-FR, instances
 // Intl mémorisées), et la date+heure s'importe directement via son
 // `formatDateTime` — l'ancien `fmtDate` en était un décalque octet pour
 // octet. Restent locaux, car spécifiques au métier ou volontairement
@@ -13,7 +13,7 @@
 //   « — » pour une valeur non finie ;
 // - fmtDays : heures sous un jour, jours au-delà.
 
-import { formatCurrency, formatNumber, getDefaultLocale } from '@mister-guiiug/dev-wpa-config/format';
+import { formatCurrency, formatNumber, getDefaultLocale } from '@mister-guiiug/dev-pwa-config/format';
 import type { Account, Unit } from '@shared/types';
 
 const COMPACT: Intl.NumberFormatOptions = { notation: 'compact', maximumFractionDigits: 1 };
