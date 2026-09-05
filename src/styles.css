@@ -15,7 +15,7 @@
  * lutterait avec la palette figée sombre ci-dessous. Les quinze jetons du
  * contrat sont câblés à la main sur cette palette, juste après.
  */
-@import '@mister-guiiug/dev-wpa-config/components.css';
+@import '@mister-guiiug/dev-pwa-config/components.css';
 
 :root {
   color-scheme: light dark;

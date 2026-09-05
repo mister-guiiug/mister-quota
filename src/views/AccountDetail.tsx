@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Account, AccountState, EntryMode } from '@shared/types';
-import { formatDateTime } from '@mister-guiiug/dev-wpa-config/format';
+import { formatDateTime } from '@mister-guiiug/dev-pwa-config/format';
 import { fmtDays, fmtPct, fmtUnitForAccount } from '../format';
 import { useAppStore } from '../store';
 import { confirmDialog } from '../components/ConfirmDialog';

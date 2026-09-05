@@ -16,7 +16,7 @@ Application desktop multiplateforme (Windows / macOS / Linux) pour suivre la con
 
 ### Socle famille
 
-L'app consomme `@mister-guiiug/dev-wpa-config` **sans monter la stack PWA du socle**
+L'app consomme `@mister-guiiug/dev-pwa-config` **sans monter la stack PWA du socle**
 (React 19, Vite 8, Vitest 4, ESLint 9) : seuls ses modules indépendants du framework
 sont utilisés, d'où `legacy-peer-deps=true` dans `.npmrc`.
 

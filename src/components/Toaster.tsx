@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ToastViewport } from '@mister-guiiug/dev-wpa-config/react/toast';
+import { ToastViewport } from '@mister-guiiug/dev-pwa-config/react/toast';
 import { dismissToast, setToastsPaused, subscribeToasts, type ToastEntry } from '../toast';
 
 // La file reste dans `../toast` (voir son en-tête pour le pourquoi) ; seul le
