@@ -14,6 +14,14 @@ export interface SkillRunRow {
   reportJson?: string;
 }
 
+// Ce que le renderer connaît d'un connecteur. `fetch` ne traverse jamais le
+// pont ; `implemented`, si — c'est ce que l'interface lit pour dire qu'un
+// connecteur est un squelette (formulaire, carte du tableau de bord, journal).
+export type SkillInfo = Pick<
+  Skill,
+  'id' | 'label' | 'provider' | 'requiredSecrets' | 'requiredParams' | 'implemented'
+>;
+
 export interface ApiBridge {
   listAccounts(): Promise<Account[]>;
   getAccount(id: string): Promise<Account | null>;
@@ -27,9 +35,7 @@ export interface ApiBridge {
   computeState(accountId: string): Promise<AccountState | null>;
   computeAllStates(): Promise<AccountState[]>;
 
-  listSkills(): Promise<
-    Array<Pick<Skill, 'id' | 'label' | 'provider' | 'requiredSecrets' | 'requiredParams'>>
-  >;
+  listSkills(): Promise<SkillInfo[]>;
   setSecret(accountId: string, key: string, value: string): Promise<void>;
   syncNow(accountId: string): Promise<{ ok: boolean; error?: string; report?: SkillUsageReport }>;
   listSkillRuns(opts?: { accountId?: string; limit?: number }): Promise<SkillRunRow[]>;

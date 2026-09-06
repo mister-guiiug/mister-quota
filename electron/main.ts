@@ -12,6 +12,7 @@ import { Scheduler } from './scheduler';
 import { buildTray, type TrayController } from './tray';
 import { setupAutoUpdater } from './updater';
 import { IPC } from '../shared/ipc';
+import { stubSkillRunError } from '../shared/collection';
 import type { Account, AccountState, SkillUsageReport, UsageEntry } from '../shared/types';
 
 // Tiny CSV line parser: handles quoted values with embedded commas and "" escape.
@@ -103,6 +104,26 @@ async function runSync(
 
   const runId = randomUUID();
   const startedAt = new Date().toISOString();
+
+  // Un connecteur qui se déclare squelette n'est PAS appelé : son `fetch` ne
+  // parle à aucune API et, dans le cas de `generic`, rendrait même un
+  // `consumed: 0` que `reduceConsumed` prendrait pour la nouvelle référence de
+  // la période. On enregistre le refus dans `skill_runs` — le journal est
+  // l'endroit où l'utilisateur va chercher pourquoi rien ne remonte.
+  if (!skill.implemented) {
+    const error = stubSkillRunError(skill);
+    storage.recordSkillRun({
+      id: runId,
+      accountId: account.id,
+      skillId: skill.id,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      ok: false,
+      error,
+    });
+    return { ok: false, error };
+  }
+
   try {
     const resolvedSecrets = secrets.resolveAll(account.id, skill.requiredSecrets);
     const report = await skill.fetch({ account, secrets: resolvedSecrets });
@@ -265,12 +286,13 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle(IPC.listSkills, () =>
-    SKILLS.map(({ id, label, provider, requiredSecrets, requiredParams }) => ({
+    SKILLS.map(({ id, label, provider, requiredSecrets, requiredParams, implemented }) => ({
       id,
       label,
       provider,
       requiredSecrets,
       requiredParams,
+      implemented,
     })),
   );
 

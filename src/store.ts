@@ -3,14 +3,20 @@
 // the IPC bridge and then refreshes the slice it touched.
 
 import { create } from 'zustand';
+import type { SkillInfo } from '@shared/ipc';
 import type { Account, AccountState, UsageEntry } from '@shared/types';
 import { toast } from './toast';
 
 interface AppState {
   states: AccountState[] | null;
   entriesByAccount: Record<string, UsageEntry[]>;
+  // Registre des connecteurs, chargé une fois. Trois écrans en dépendent pour
+  // dire si un connecteur collecte vraiment (`implemented`) : le tableau de
+  // bord, le formulaire de compte et le journal des synchronisations.
+  skills: SkillInfo[];
   loading: boolean;
 
+  loadSkills: () => Promise<void>;
   refreshAll: () => Promise<void>;
   refreshOne: (accountId: string) => Promise<void>;
   upsertAccount: (a: Account) => Promise<void>;
@@ -32,7 +38,13 @@ async function safe<T>(label: string, op: () => Promise<T>): Promise<T | null> {
 export const useAppStore = create<AppState>((set, get) => ({
   states: null,
   entriesByAccount: {},
+  skills: [],
   loading: false,
+
+  async loadSkills() {
+    const skills = await safe('Chargement des connecteurs', () => window.api.listSkills());
+    if (skills) set({ skills });
+  },
 
   async refreshAll() {
     set({ loading: true });

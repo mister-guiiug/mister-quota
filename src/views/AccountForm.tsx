@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type {
   Account,
   CollectionMethod,
@@ -6,9 +6,9 @@ import type {
   PeriodRule,
   PeriodType,
   Provider,
-  Skill,
   Unit,
 } from '@shared/types';
+import { collectionWarning } from '@shared/collection';
 import { useAppStore } from '../store';
 import { toast } from '../toast';
 
@@ -39,15 +39,13 @@ export function AccountForm({ initial, onSaved, onCancel }: Props): JSX.Element 
   const [alertThresholdsCsv, setAlertThresholdsCsv] = useState<string>(
     (initial?.alertThresholdsPct ?? [80, 100]).join(', '),
   );
-  const [skills, setSkills] = useState<
-    Array<Pick<Skill, 'id' | 'label' | 'requiredSecrets' | 'requiredParams'>>
-  >([]);
-
-  useEffect(() => {
-    window.api.listSkills().then(setSkills);
-  }, []);
+  const skills = useAppStore((s) => s.skills);
 
   const selectedSkill = skills.find((s) => s.id === skillId);
+  // Le formulaire est l'endroit où la promesse est faite (« Méthode de
+  // collecte : automatique ») : c'est donc là qu'elle doit être démentie, avant
+  // l'enregistrement, et pas seulement après des jours sans chiffres.
+  const warning = collectionWarning({ collection, skillId }, skills);
 
   async function handleSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
@@ -220,10 +218,17 @@ export function AccountForm({ initial, onSaved, onCancel }: Props): JSX.Element 
             {skills.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.label}
+                {s.implemented ? '' : ' — squelette'}
               </option>
             ))}
           </select>
         </label>
+
+        {warning && (
+          <p className="notice warn" role="status">
+            {warning}
+          </p>
+        )}
 
         {selectedSkill?.requiredParams.map((p) => (
           <label key={p}>

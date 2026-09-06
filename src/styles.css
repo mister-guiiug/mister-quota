@@ -295,6 +295,24 @@ table th {
   text-align: center;
 }
 
+/* Encart d'information en place : ce que l'app ne peut pas faire se dit là où
+   l'utilisateur le demande (carte, formulaire, journal), pas dans une
+   notification qui disparaît. Fond opaque sous la teinte, pour que le contraste
+   du texte ne dépende pas du fond de la carte. */
+.notice {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border-left: 3px solid var(--fg-dim);
+  background: var(--bg-elev-2);
+  color: var(--fg);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.notice.warn {
+  border-left-color: var(--warn);
+}
+
 .svg-chart {
   width: 100%;
   height: 220px;

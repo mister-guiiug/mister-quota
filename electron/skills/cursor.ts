@@ -10,12 +10,17 @@ import { resolvePeriod } from '../../shared/period';
 // Until the user wires real credentials, this is a thin stub that throws —
 // rather than silently returning fake numbers — so the dashboard surfaces
 // "skill misconfigured" instead of wrong data.
+//
+// `implemented: false` : ce squelette le DÉCLARE, et l'interface le répète à
+// l'utilisateur (formulaire, carte, journal) au lieu de le laisser attendre une
+// collecte qui n'arrivera pas. À passer à `true` en même temps que l'appel HTTP.
 export const cursorSkill: Skill = {
   id: 'cursor',
   label: 'Cursor',
   provider: 'cursor',
   requiredSecrets: ['apiKey'],
   requiredParams: [],
+  implemented: false,
   async fetch(ctx): Promise<SkillUsageReport> {
     const apiKey = ctx.secrets.apiKey;
     if (!apiKey) throw new Error('cursor skill: missing apiKey secret');

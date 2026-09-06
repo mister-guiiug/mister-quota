@@ -50,6 +50,35 @@ test('la confirmation de suppression est nommée et ne détruit pas sur Entrée'
   await expect(page.getByText('Claude Pro')).toBeVisible();
 });
 
+// Le shim d'aperçu reproduit le registre réel : « Claude (Anthropic) » est un
+// squelette, « OpenAI » ne l'est pas. Un compte branché sur le premier annonce
+// une collecte automatique qui n'arrivera jamais — c'est ce que ces deux tests
+// vérifient bout en bout, du drapeau `implemented` jusqu'au pixel.
+test('la carte d’un compte branché sur un connecteur squelette le dit', async ({ page }) => {
+  await page.goto('/');
+  const claude = page.locator('.card').filter({ hasText: 'Claude Pro' });
+  await expect(claude.getByText(/squelette/)).toBeVisible();
+
+  // Le compte servi par un vrai connecteur, lui, n'affiche rien.
+  const openai = page.locator('.card').filter({ hasText: 'OpenAI Team' });
+  await expect(openai.getByText(/squelette/)).toHaveCount(0);
+});
+
+test('« Synchroniser maintenant » sur un squelette échoue franchement et laisse une trace au journal', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('heading', { name: /^Claude Pro/ }).click();
+  await page.getByRole('button', { name: 'Synchroniser maintenant' }).click();
+  await expect(page.getByText(/squelette/).first()).toBeVisible();
+
+  await page.getByRole('button', { name: '← Dashboard' }).click();
+  await page.getByRole('button', { name: 'Journal des syncs' }).click();
+  const row = page.locator('tbody tr').first();
+  await expect(row).toContainText('claude');
+  await expect(row.getByText('squelette', { exact: true })).toBeVisible();
+});
+
 test('tag filter narrows the visible accounts', async ({ page }) => {
   await page.goto('/');
   // Wait for the tag select to mount (it only appears when accounts have tags).

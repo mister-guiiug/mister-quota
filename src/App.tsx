@@ -23,17 +23,22 @@ type View =
 export function App(): JSX.Element {
   const [view, setView] = useState<View>({ kind: 'dashboard' });
   const refreshAll = useAppStore((s) => s.refreshAll);
+  const loadSkills = useAppStore((s) => s.loadSkills);
 
   useEffect(() => {
+    const boot = (): void => {
+      void refreshAll();
+      void loadSkills();
+    };
     if (typeof window !== 'undefined' && !window.api) {
       import('./previewShim').then((m) => {
         m.installPreviewShim();
-        refreshAll();
+        boot();
       });
     } else {
-      refreshAll();
+      boot();
     }
-  }, [refreshAll]);
+  }, [refreshAll, loadSkills]);
 
   const handleExport = async (format: 'json' | 'csv'): Promise<void> => {
     try {

@@ -3,10 +3,52 @@
 // be exercised end-to-end with sample data without spinning up Electron.
 
 import { computeAccountState } from '@shared/calc';
+import { stubSkillRunError } from '@shared/collection';
+import type { SkillRunRow } from '@shared/ipc';
 import type { Account, AccountState, UsageEntry } from '@shared/types';
+
+// Le registre côté aperçu doit refléter `electron/skills/index.ts` — mêmes
+// identifiants, mêmes libellés, MÊME drapeau `implemented`. Un aperçu qui
+// annoncerait des connecteurs opérationnels alors que l'app n'en a qu'un
+// referait exactement le mensonge qu'on est en train de corriger.
+const PREVIEW_SKILLS = [
+  {
+    id: 'cursor',
+    label: 'Cursor',
+    provider: 'cursor',
+    requiredSecrets: ['apiKey'],
+    requiredParams: [],
+    implemented: false,
+  },
+  {
+    id: 'claude',
+    label: 'Claude (Anthropic)',
+    provider: 'claude',
+    requiredSecrets: ['adminApiKey'],
+    requiredParams: ['organizationId'],
+    implemented: false,
+  },
+  {
+    id: 'openai',
+    label: 'OpenAI',
+    provider: 'openai',
+    requiredSecrets: ['adminApiKey'],
+    requiredParams: [],
+    implemented: true,
+  },
+  {
+    id: 'generic',
+    label: 'Generic (modèle — ne collecte rien)',
+    provider: 'other',
+    requiredSecrets: [],
+    requiredParams: [],
+    implemented: false,
+  },
+] as const;
 
 let accounts: Account[] = [];
 let entries: UsageEntry[] = [];
+let skillRuns: SkillRunRow[] = [];
 
 function seed(): void {
   if (accounts.length > 0) return;
@@ -125,29 +167,43 @@ export function installPreviewShim(): void {
       return computeAccountState({ account: a, entries: own, historicalEntries: own });
     },
     computeAllStates: async () => computeAll(),
-    listSkills: async () => [
-      { id: 'cursor', label: 'Cursor', provider: 'cursor', requiredSecrets: ['apiKey'], requiredParams: [] },
-      {
-        id: 'claude',
-        label: 'Claude',
-        provider: 'claude',
-        requiredSecrets: ['adminApiKey'],
-        requiredParams: ['organizationId'],
-      },
-      {
-        id: 'openai',
-        label: 'OpenAI',
-        provider: 'openai',
-        requiredSecrets: ['adminApiKey'],
-        requiredParams: [],
-      },
-      { id: 'generic', label: 'Generic', provider: 'other', requiredSecrets: [], requiredParams: [] },
-    ],
+    listSkills: async () =>
+      PREVIEW_SKILLS.map((s) => ({
+        ...s,
+        requiredSecrets: [...s.requiredSecrets],
+        requiredParams: [...s.requiredParams],
+      })),
     setSecret: async () => {
       /* no-op in preview */
     },
-    syncNow: async () => ({ ok: false, error: 'preview mode — no live sync' }),
-    listSkillRuns: async () => [],
+    // Même refus qu'en vrai : un connecteur squelette n'est pas « appelé sans
+    // réseau », il n'est pas appelé du tout, et le journal le dit.
+    syncNow: async (accountId) => {
+      const account = accounts.find((a) => a.id === accountId);
+      const skill = PREVIEW_SKILLS.find((s) => s.id === account?.skillId);
+      const error = skill
+        ? skill.implemented
+          ? 'mode aperçu — aucune synchronisation réelle'
+          : stubSkillRunError(skill)
+        : 'aucun connecteur configuré';
+      skillRuns = [
+        {
+          id: crypto.randomUUID(),
+          accountId,
+          skillId: account?.skillId ?? '—',
+          startedAt: new Date().toISOString(),
+          finishedAt: new Date().toISOString(),
+          ok: false,
+          error,
+        },
+        ...skillRuns,
+      ];
+      return { ok: false, error };
+    },
+    listSkillRuns: async (opts) =>
+      skillRuns
+        .filter((r) => !opts?.accountId || r.accountId === opts.accountId)
+        .slice(0, opts?.limit ?? 200),
     importEntriesCsv: async () => ({ inserted: 0, errors: ['preview mode — import disabled'] }),
     exportData: async () => 'preview://export-not-available',
   };
