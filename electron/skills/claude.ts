@@ -5,12 +5,16 @@ import { resolvePeriod } from '../../shared/period';
 //   secret: adminApiKey  (Console > Settings > Admin keys)
 //   param:  organizationId
 // Endpoints (as of writing): /v1/organizations/{orgId}/usage_report/messages
+//
+// `implemented: false` : squelette, comme `cursor.ts`. L'URL est écrite, l'appel
+// ne l'est pas ; le drapeau est ce que lit l'interface pour le dire.
 export const claudeSkill: Skill = {
   id: 'claude',
   label: 'Claude (Anthropic)',
   provider: 'claude',
   requiredSecrets: ['adminApiKey'],
   requiredParams: ['organizationId'],
+  implemented: false,
   async fetch(ctx): Promise<SkillUsageReport> {
     const adminApiKey = ctx.secrets.adminApiKey;
     if (!adminApiKey) throw new Error('claude skill: missing adminApiKey secret');

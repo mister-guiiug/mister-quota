@@ -5,12 +5,16 @@ import { fetchWithRetry } from '../http';
 // OpenAI usage via the Admin API.
 //   secret: adminApiKey
 //   param:  projectId (optional — omit for org-wide totals)
+// `implemented: true` : c'est le seul connecteur qui appelle réellement une API
+// (via `fetchWithRetry`). Le champ agrégé peut ne pas correspondre à l'unité du
+// quota — d'où `confidence: 'estimated'` — mais la collecte, elle, a lieu.
 export const openaiSkill: Skill = {
   id: 'openai',
   label: 'OpenAI',
   provider: 'openai',
   requiredSecrets: ['adminApiKey'],
   requiredParams: [],
+  implemented: true,
   async fetch(ctx): Promise<SkillUsageReport> {
     const apiKey = ctx.secrets.adminApiKey;
     if (!apiKey) throw new Error('openai skill: missing adminApiKey secret');

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Account, AccountState } from '@shared/types';
+import { collectionWarning } from '@shared/collection';
 import { fmtDays, fmtPct, fmtUnit, fmtUnitForAccount } from '../format';
 import { useAppStore } from '../store';
 
@@ -12,6 +13,7 @@ interface Props {
 
 export function Dashboard({ onOpen, onEdit }: Props): JSX.Element {
   const states = useAppStore((s) => s.states);
+  const skills = useAppStore((s) => s.skills);
   const loading = useAppStore((s) => s.loading);
   const [sort, setSort] = useState<SortKey>('most_behind');
   const [filterProvider, setFilterProvider] = useState<string>('all');
@@ -133,6 +135,7 @@ export function Dashboard({ onOpen, onEdit }: Props): JSX.Element {
           <AccountCard
             key={s.account.id}
             state={s}
+            warning={collectionWarning(s.account, skills)}
             onOpen={() => onOpen(s.account.id)}
             onEdit={() => onEdit(s.account)}
           />
@@ -144,10 +147,15 @@ export function Dashboard({ onOpen, onEdit }: Props): JSX.Element {
 
 function AccountCard({
   state,
+  warning,
   onOpen,
   onEdit,
 }: {
   state: AccountState;
+  // Non nul quand la collecte annoncée par le compte ne peut pas avoir lieu.
+  // C'est la carte que l'utilisateur regarde tous les jours : un « consommé »
+  // qui ne bouge pas doit s'expliquer ici, pas dans un journal.
+  warning: string | null;
   onOpen: () => void;
   onEdit: () => void;
 }): JSX.Element {
@@ -182,6 +190,12 @@ function AccountCard({
         </div>
         <span className={`status ${state.status}`}>{statusLabel(state.status)}</span>
       </div>
+
+      {warning && (
+        <p className="notice warn" style={{ marginTop: 10 }}>
+          {warning}
+        </p>
+      )}
 
       <div className="bar" style={{ marginTop: 12 }}>
         <div

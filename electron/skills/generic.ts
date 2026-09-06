@@ -1,16 +1,21 @@
 import type { Skill, SkillUsageReport } from '../../shared/types';
 import { resolvePeriod } from '../../shared/period';
 
-// "Generic" skill — useful as a smoke-test connector and as a template for
-// new providers. It returns the most-recent manual entry (if any) packaged
-// as a SkillUsageReport, so the dashboard can demonstrate the round-trip
-// even before a real API is wired.
+// « Generic » — modèle de connecteur, à copier pour écrire un vrai fournisseur.
+//
+// Son étiquette promettait de renvoyer le dernier relevé manuel ; il renvoie en
+// fait `consumed: 0`. Ce zéro n'est pas neutre : `reduceConsumed` traite un
+// relevé `cumulative` comme la nouvelle référence de la période, donc une
+// synchronisation « réussie » remettrait la consommation affichée à zéro. D'où
+// `implemented: false` — le processus principal refuse de le lancer, et
+// l'interface annonce le squelette au lieu d'écrire un chiffre faux.
 export const genericManualSkill: Skill = {
   id: 'generic',
-  label: 'Generic (echo last manual entry)',
+  label: 'Generic (modèle — ne collecte rien)',
   provider: 'other',
   requiredSecrets: [],
   requiredParams: [],
+  implemented: false,
   async fetch(ctx): Promise<SkillUsageReport> {
     const period = resolvePeriod(ctx.account.periodRule);
     return {

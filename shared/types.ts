@@ -167,5 +167,13 @@ export interface Skill {
   requiredSecrets: string[];
   // Declares which non-secret params are needed (e.g. workspace id).
   requiredParams: string[];
+  // Does this connector actually collect anything?
+  //
+  // `false` = squelette : `fetch` ne parle à aucune API et ne rendra jamais de
+  // chiffre. C'est le connecteur qui le DÉCLARE — l'interface lit ce drapeau
+  // pour prévenir l'utilisateur (formulaire, carte du tableau de bord, journal)
+  // et le processus principal refuse la synchronisation au lieu de faire
+  // semblant. Aucune liste de noms n'est codée en dur ailleurs.
+  implemented: boolean;
   fetch(ctx: SkillContext): Promise<SkillUsageReport>;
 }
