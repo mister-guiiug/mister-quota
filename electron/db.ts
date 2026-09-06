@@ -103,6 +103,11 @@ const MIGRATIONS: Array<{ version: number; sql: string }> = [
   },
 ];
 
+// Version de schéma qu'une base fraîchement migrée porte. C'est elle que
+// l'export inscrit dans la sauvegarde et que l'import compare, pour refuser
+// proprement un fichier écrit par une version future de l'application.
+export const CURRENT_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;
+
 export class Storage {
   private db!: Database;
   private dbPath!: string;
@@ -161,6 +166,25 @@ export class Storage {
     this.db.exec('PRAGMA foreign_keys = ON;');
   }
 
+  // Version réellement inscrite dans la base ouverte (et non celle du code) :
+  // c'est ce que la sauvegarde doit déclarer.
+  schemaVersion(): number {
+    const res = this.db.exec('SELECT MAX(version) as v FROM schema_version');
+    return (res[0]?.values?.[0]?.[0] as number | null) ?? 0;
+  }
+
+  counts(): { accounts: number; entries: number; skillRuns: number } {
+    const one = (sql: string): number => {
+      const res = this.db.exec(sql);
+      return (res[0]?.values?.[0]?.[0] as number | null) ?? 0;
+    };
+    return {
+      accounts: one('SELECT COUNT(*) FROM accounts'),
+      entries: one('SELECT COUNT(*) FROM entries'),
+      skillRuns: one('SELECT COUNT(*) FROM skill_runs'),
+    };
+  }
+
   // ── Accounts ──────────────────────────────────────────────────────────────
   listAccounts(): Account[] {
     const res = this.db.exec('SELECT * FROM accounts ORDER BY name COLLATE NOCASE');
@@ -181,6 +205,14 @@ export class Storage {
   }
 
   upsertAccount(a: Account): void {
+    this.upsertAccountRow(a);
+    this.flush();
+  }
+
+  // Écriture SANS vidage disque : `flush()` sérialise toute la base, ce qui est
+  // à la fois coûteux et interdit au milieu d'une transaction. Les restaurations
+  // (`replaceAll`) écrivent des centaines de lignes puis vident une seule fois.
+  private upsertAccountRow(a: Account): void {
     this.db.run(
       `INSERT INTO accounts(
          id,name,provider,period_rule_json,quota,unit,currency,collection,
@@ -228,7 +260,6 @@ export class Storage {
         a.updatedAt,
       ],
     );
-    this.flush();
   }
 
   deleteAccount(id: string): void {
@@ -247,12 +278,16 @@ export class Storage {
   }
 
   insertEntry(e: UsageEntry): void {
+    this.insertEntryRow(e);
+    this.flush();
+  }
+
+  private insertEntryRow(e: UsageEntry): void {
     this.db.run(
       `INSERT INTO entries(id,account_id,recorded_at,value,mode,source,comment,skill_run_id)
        VALUES(?,?,?,?,?,?,?,?)`,
       [e.id, e.accountId, e.recordedAt, e.value, e.mode, e.source, e.comment ?? null, e.skillRunId ?? null],
     );
-    this.flush();
   }
 
   deleteEntry(id: string): void {
@@ -311,6 +346,42 @@ export class Storage {
     }
     stmt.free();
     return out;
+  }
+
+  // ── Restauration ─────────────────────────────────────────────────────────
+  // Remplace intégralement le contenu par celui d'une sauvegarde déjà VALIDÉE
+  // (`shared/backup.ts` : validation d'abord, écriture ensuite — un fichier
+  // étranger n'arrive jamais jusqu'ici et n'efface donc rien).
+  //
+  // Tout tient dans une transaction : une contrainte violée à la 200e ligne
+  // laisserait sinon une base à moitié écrasée, c'est-à-dire pire que l'état
+  // d'avant. Le vidage disque n'a lieu qu'après le COMMIT.
+  //
+  // `skill_runs` disparaît : l'audit des exécutions décrit CETTE installation,
+  // pas les données restaurées, et sa clé étrangère pointe sur des comptes qui
+  // s'en vont. L'interface le dit avant de confirmer.
+  //
+  // Les secrets ne sont pas concernés : ils ne sont pas dans le fichier et ce
+  // module n'y touche pas.
+  replaceAll(data: { accounts: Account[]; entries: UsageEntry[] }): {
+    accounts: number;
+    entries: number;
+  } {
+    this.db.exec('BEGIN');
+    try {
+      this.db.run('DELETE FROM skill_runs');
+      this.db.run('DELETE FROM entries');
+      this.db.run('DELETE FROM accounts');
+      for (const a of data.accounts) this.upsertAccountRow(a);
+      for (const e of data.entries) this.insertEntryRow(e);
+      this.db.exec('COMMIT');
+    } catch (e) {
+      this.db.exec('ROLLBACK');
+      this.log.error('replaceAll failed — base laissée intacte', e);
+      throw e;
+    }
+    this.flush();
+    return { accounts: data.accounts.length, entries: data.entries.length };
   }
 
   close(): void {

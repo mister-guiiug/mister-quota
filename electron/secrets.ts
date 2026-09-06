@@ -60,6 +60,28 @@ export class SecretsStore {
     await this.persist();
   }
 
+  // Après une restauration de sauvegarde, les comptes de la base ont été
+  // intégralement remplacés sans passer par `deleteForAccount`. Une clé d'API
+  // ne doit pas survivre au compte qu'elle servait : on efface celles dont
+  // l'identifiant n'existe plus.
+  //
+  // L'opération est volontairement DESTRUCTIVE d'un seul côté : elle ne crée
+  // jamais de secret. Une sauvegarde n'en contient pas et n'en écrit pas —
+  // restaurer sur une machine neuve laisse les champs à ressaisir.
+  async pruneOrphans(keptAccountIds: string[]): Promise<number> {
+    const kept = new Set(keptAccountIds);
+    let removed = 0;
+    for (const k of Object.keys(this.cache)) {
+      const accountId = k.slice(0, k.indexOf(':'));
+      if (!kept.has(accountId)) {
+        delete this.cache[k];
+        removed++;
+      }
+    }
+    if (removed > 0) await this.persist();
+    return removed;
+  }
+
   private async persist(): Promise<void> {
     await fs.writeFile(this.filePath, JSON.stringify(this.cache, null, 2), 'utf8');
   }

@@ -18,6 +18,7 @@ const api: ApiBridge = {
   listSkillRuns: (opts) => ipcRenderer.invoke(IPC.listSkillRuns, opts ?? {}),
   importEntriesCsv: (accountId, csvText) => ipcRenderer.invoke(IPC.importEntriesCsv, accountId, csvText),
   exportData: (format) => ipcRenderer.invoke(IPC.exportData, format),
+  importBackup: (jsonText, opts) => ipcRenderer.invoke(IPC.importBackup, jsonText, opts ?? {}),
 };
 
 contextBridge.exposeInMainWorld('api', api);

@@ -12,7 +12,10 @@ import { Scheduler } from './scheduler';
 import { buildTray, type TrayController } from './tray';
 import { setupAutoUpdater } from './updater';
 import { IPC } from '../shared/ipc';
+import type { ImportBackupResult } from '../shared/ipc';
 import { stubSkillRunError } from '../shared/collection';
+import { buildBackup, buildExportCsv } from '../shared/backup';
+import { restoreFromBackup } from './restore';
 import type { Account, AccountState, SkillUsageReport, UsageEntry } from '../shared/types';
 
 // Tiny CSV line parser: handles quoted values with embedded commas and "" escape.
@@ -357,6 +360,11 @@ function registerIpcHandlers(): void {
     },
   );
 
+  // L'export JSON est désormais une SAUVEGARDE : il porte son en-tête
+  // (`app`, `formatVersion`, `schemaVersion`) et `IPC.importBackup` sait le
+  // relire. Le CSV reste un vidage pour tableur. Les deux formats sont
+  // construits par `shared/backup.ts`, qui ne lit que les comptes et les
+  // relevés — jamais le trousseau.
   ipcMain.handle(IPC.exportData, async (_e, format: 'csv' | 'json'): Promise<string> => {
     const accounts = storage.listAccounts();
     const states = accounts.map((a) =>
@@ -365,61 +373,37 @@ function registerIpcHandlers(): void {
     const entries = accounts.flatMap((a) => storage.listEntries(a.id));
 
     const { canceled, filePath } = await dialog.showSaveDialog({
-      title: 'Export data',
-      defaultPath: `mister-quota-export-${Date.now()}.${format}`,
+      title: format === 'json' ? 'Sauvegarder les données' : 'Exporter en CSV',
+      defaultPath: `mister-quota-${format === 'json' ? 'sauvegarde' : 'export'}-${Date.now()}.${format}`,
       filters:
         format === 'csv' ? [{ name: 'CSV', extensions: ['csv'] }] : [{ name: 'JSON', extensions: ['json'] }],
     });
     if (canceled || !filePath) return '';
 
-    if (format === 'json') {
-      await fs.writeFile(filePath, JSON.stringify({ accounts, entries, states }, null, 2), 'utf8');
-    } else {
-      const header = ['account_id', 'account_name', 'recorded_at', 'value', 'mode', 'source', 'comment'].join(
-        ',',
-      );
-      const rows = entries.map((e) =>
-        [
-          e.accountId,
-          accounts.find((a) => a.id === e.accountId)?.name ?? '',
-          e.recordedAt,
-          e.value,
-          e.mode,
-          e.source,
-          (e.comment ?? '').replace(/"/g, '""'),
-        ]
-          .map((c) => `"${String(c)}"`)
-          .join(','),
-      );
-      // Append a separate per-account state block as commented rows.
-      const stateRows = states.map((s) =>
-        [
-          '#STATE',
-          s.account.id,
-          s.account.name,
-          s.consumed,
-          s.idealToDate,
-          s.delta,
-          s.deltaPct.toFixed(2),
-          s.theoreticalDailyAmount.toFixed(2),
-          s.requiredDailyAvgRemaining.toFixed(2),
-          s.status,
-        ]
-          .map((c) => `"${String(c)}"`)
-          .join(','),
-      );
-      await fs.writeFile(
-        filePath,
-        [
-          header,
-          ...rows,
-          '',
-          '#STATE,account_id,name,consumed,idealToDate,delta,deltaPct,theoreticalDailyAmount,requiredDailyAvgRemaining,status',
-          ...stateRows,
-        ].join('\n'),
-        'utf8',
-      );
-    }
+    const content =
+      format === 'json'
+        ? JSON.stringify(
+            buildBackup({ accounts, entries, states, schemaVersion: storage.schemaVersion() }),
+            null,
+            2,
+          )
+        : buildExportCsv({ accounts, entries, states });
+    await fs.writeFile(filePath, content, 'utf8');
     return filePath;
   });
+
+  // La logique — valider, confirmer, écrire — vit dans `restore.ts`, où elle
+  // est testable ; il ne reste ici que les effets propres à l'application.
+  ipcMain.handle(
+    IPC.importBackup,
+    async (_e, jsonText: string, opts: { confirmed?: boolean } = {}): Promise<ImportBackupResult> => {
+      const result = await restoreFromBackup({ storage, secrets, log: (m) => log.info(m) }, jsonText, opts);
+      if (result.ok) {
+        scheduler?.reload();
+        tray?.refresh();
+        evaluateAlertsForAll();
+      }
+      return result;
+    },
+  );
 }

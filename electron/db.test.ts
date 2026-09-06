@@ -7,7 +7,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { Storage } from './db';
+import { CURRENT_SCHEMA_VERSION, Storage } from './db';
+import { DB_SCHEMA_VERSION } from '../shared/backup';
 import type { Account, UsageEntry } from '../shared/types';
 
 const silent = { info: () => {}, error: () => {} };
@@ -189,5 +190,73 @@ describe('Storage — persistence', () => {
     expect(back?.alertThresholdsPct).toEqual([80, 100]);
     expect(back?.syncIntervalMinutes).toBeUndefined();
     r.close();
+  });
+});
+
+describe('Storage — version de schéma', () => {
+  it('expose la version réellement inscrite dans la base', () => {
+    expect(storage.schemaVersion()).toBe(CURRENT_SCHEMA_VERSION);
+  });
+
+  // Verrou : la sauvegarde étiquette ses fichiers avec `DB_SCHEMA_VERSION`, que
+  // le renderer connaît sans pouvoir importer ce module (sql.js). Ajouter une
+  // migration v3 sans passer par `shared/backup.ts` produirait des sauvegardes
+  // mal étiquetées, silencieusement ; ce test tombe d'abord.
+  it('est la même que celle déclarée au format de sauvegarde', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(DB_SCHEMA_VERSION);
+  });
+});
+
+describe('Storage — replaceAll (restauration)', () => {
+  it('remplace comptes et relevés, et vide le journal des synchronisations', () => {
+    storage.upsertAccount(mkAccount({ id: 'ancien', name: 'à remplacer' }));
+    storage.insertEntry(mkEntry({ id: 'e1', accountId: 'ancien' }));
+    storage.recordSkillRun({
+      id: 'r1',
+      accountId: 'ancien',
+      skillId: 'openai',
+      startedAt: '2026-05-10T00:00:00Z',
+      ok: true,
+    });
+
+    const written = storage.replaceAll({
+      accounts: [mkAccount({ id: 'neuf', name: 'restauré' })],
+      entries: [mkEntry({ id: 'e9', accountId: 'neuf', value: 7 })],
+    });
+
+    expect(written).toEqual({ accounts: 1, entries: 1 });
+    expect(storage.listAccounts().map((a) => a.id)).toEqual(['neuf']);
+    expect(storage.listEntries('neuf')[0].value).toBe(7);
+    // L'audit décrit CETTE installation, pas les données restaurées — et sa
+    // clé étrangère pointait sur un compte qui vient de disparaître.
+    expect(storage.counts()).toEqual({ accounts: 1, entries: 1, skillRuns: 0 });
+  });
+
+  it('survit à un aller-retour sur le disque', async () => {
+    storage.replaceAll({ accounts: [mkAccount({ id: 'neuf' })], entries: [] });
+    storage.close();
+    const reopened = new Storage(silent);
+    await reopened.open(dir);
+    expect(reopened.listAccounts().map((a) => a.id)).toEqual(['neuf']);
+    reopened.close();
+  });
+
+  // Le pire état possible pour une restauration serait une base à moitié
+  // écrasée : ni l'ancienne, ni la nouvelle. La transaction l'interdit.
+  it('laisse la base intacte quand l’écriture échoue en cours de route', () => {
+    storage.upsertAccount(mkAccount({ id: 'a1', name: 'intact' }));
+    storage.insertEntry(mkEntry({ id: 'e1' }));
+
+    const doublon = mkEntry({ id: 'meme-id', accountId: 'neuf' });
+    expect(() =>
+      storage.replaceAll({
+        accounts: [mkAccount({ id: 'neuf' })],
+        entries: [doublon, { ...doublon }],
+      }),
+    ).toThrow();
+
+    expect(storage.getAccount('a1')?.name).toBe('intact');
+    expect(storage.listEntries('a1')).toHaveLength(1);
+    expect(storage.getAccount('neuf')).toBeNull();
   });
 });

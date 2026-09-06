@@ -42,7 +42,26 @@ export interface ApiBridge {
 
   importEntriesCsv(accountId: string, csvText: string): Promise<{ inserted: number; errors: string[] }>;
   exportData(format: 'csv' | 'json'): Promise<string>; // returns file path
+  importBackup(jsonText: string, opts?: { confirmed?: boolean }): Promise<ImportBackupResult>;
 }
+
+// Restauration en deux temps. La VALIDATION passe d'abord : un fichier d'une
+// autre application, ou d'un schéma inconnu, est refusé (`invalid`) sans que
+// rien n'ait été effacé et sans qu'on ait dérangé l'utilisateur. Ce n'est que
+// pour un fichier valide, sur une base non vide, que le processus principal
+// réclame une confirmation explicite (`needs_confirmation`) — l'interface la
+// demande puis rappelle avec `confirmed: true`. Le renderer ne décide donc
+// jamais seul d'écraser la base.
+export type ImportBackupResult =
+  | { ok: true; accounts: number; entries: number }
+  | { ok: false; reason: 'invalid'; error: string }
+  | { ok: false; reason: 'failed'; error: string }
+  | {
+      ok: false;
+      reason: 'needs_confirmation';
+      existing: { accounts: number; entries: number; skillRuns: number };
+      incoming: { accounts: number; entries: number };
+    };
 
 declare global {
   interface Window {
@@ -66,4 +85,5 @@ export const IPC = {
   listSkillRuns: 'skills:runs',
   importEntriesCsv: 'entries:importCsv',
   exportData: 'data:export',
+  importBackup: 'data:importBackup',
 } as const;
