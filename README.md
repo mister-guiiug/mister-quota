@@ -1,6 +1,8 @@
 # Mister Quota
 
-Application desktop multiplateforme (Windows / macOS / Linux) pour suivre la consommation de plusieurs comptes IA (Cursor, Claude, OpenAI, …), saisie **manuelle** ou **automatique**, avec affichage de l'**avance / retard** par rapport à la consommation idéale jusqu'à la prochaine date d'anniversaire.
+Application desktop multiplateforme (Windows / macOS / Linux) pour suivre la consommation de plusieurs comptes IA (Cursor, Claude, OpenAI, …), avec affichage de l'**avance / retard** par rapport à la consommation idéale jusqu'à la prochaine date d'anniversaire.
+
+> **État réel de la collecte automatique.** Un seul connecteur appelle vraiment une API (OpenAI). Ceux de Cursor et de Claude sont des **squelettes** : l'emplacement de l'appel HTTP est écrit, l'appel ne l'est pas. Les comptes qui en dépendent se saisissent **à la main** — l'application le dit maintenant à l'écran (formulaire, carte, journal) plutôt que de laisser attendre des chiffres qui ne viendront pas. Voir « Skills (connecteurs) ».
 
 ---
 
@@ -12,7 +14,7 @@ Application desktop multiplateforme (Windows / macOS / Linux) pour suivre la con
 | Stockage           | **SQLite via `sql.js`** (WASM, pas de native dep)         | Conforme à l'exigence "SQLite", installable partout sans Visual Studio C++ ni `node-gyp`. Migrations forward-only.                                                                                                    |
 | Secrets (API keys) | **Electron `safeStorage`** → Keychain / DPAPI / libsecret | Conforme à l'exigence "chiffrés localement via OS keychain".                                                                                                                                                          |
 | Dates / TZ         | `date-fns` + `date-fns-tz`                                | Calcul de période robuste aux fuseaux et aux mois courts (clamp 31 → 28/30).                                                                                                                                          |
-| Tests              | `vitest`                                                  | Suite focalisée sur les fonctions de calcul et la résolution de période.                                                                                                                                              |
+| Tests              | `vitest` + `@playwright/test`                             | Vitest sur le domaine, le stockage et le format de sauvegarde ; Playwright sur l'interface, en mode _preview shim_ (sans Electron empaqueté).                                                                         |
 
 ### Socle famille
 
@@ -42,8 +44,9 @@ Prérequis : Node 20+ (testé avec 25.2). Aucun toolchain natif requis.
 
 ```bash
 npm install
-npm run test            # 15 tests sur les calculs et la résolution de période
-npm run build           # build du renderer (Vite → dist/)
+npm run test            # 88 tests (domaine, stockage, sauvegarde, connecteurs)
+npm run e2e             # 8 tests Playwright sur l'interface
+npm run build           # build du renderer (Vite → dist/) + budget de bundle
 npm run dev:electron    # lance Vite + Electron en mode dev
 ```
 
@@ -86,26 +89,35 @@ mister-quota/
 │   ├── types.ts           ← tous les types domaine (Account, UsageEntry, AccountState, Skill…)
 │   ├── period.ts          ← résolution PeriodRule → [start, end) (TZ-aware)
 │   ├── calc.ts            ← fonctions pures de calcul (testées)
+│   ├── collection.ts      ← diagnostic « ce compte peut-il collecter ? » (lit Skill.implemented)
+│   ├── backup.ts          ← format de sauvegarde : construction, validation, export CSV
 │   └── ipc.ts             ← contrat IPC typé entre renderer et main
 ├── electron/              ← processus principal Electron (Node)
 │   ├── main.ts            ← bootstrap + handlers IPC
 │   ├── preload.ts         ← expose window.api typé via contextBridge
-│   ├── db.ts              ← Storage SQLite (sql.js) + migrations
+│   ├── db.ts              ← Storage SQLite (sql.js) + migrations + replaceAll
+│   ├── restore.ts         ← restauration : valider → confirmer → écrire
 │   ├── secrets.ts         ← SecretsStore (safeStorage)
 │   ├── log.ts             ← Logger fichier rotatif
 │   └── skills/            ← connecteurs (cursor, claude, openai, generic)
 ├── src/                   ← renderer React
-│   ├── App.tsx            ← navigation 3 vues (dashboard / form / detail)
+│   ├── App.tsx            ← navigation 5 vues + sauvegarde / restauration
+│   ├── store.ts           ← store Zustand (états, relevés, registre des connecteurs)
 │   ├── views/
 │   │   ├── Dashboard.tsx  ← liste des comptes avec barre de progression et indicateurs
 │   │   ├── AccountForm.tsx← création / édition (CRUD comptes + secrets)
-│   │   └── AccountDetail.tsx ← courbe réel vs idéal + relevés + sync now
+│   │   ├── AccountDetail.tsx ← courbe réel vs idéal + relevés + sync now
+│   │   └── SyncLog.tsx    ← journal des exécutions de connecteurs (table skill_runs)
 │   ├── format.ts          ← helpers d'affichage (unités, %, dates)
 │   ├── previewShim.ts     ← backend in-memory pour le mode "vite dev" sans Electron
 │   └── styles.css         ← thème sombre simple
-└── tests/
-    └── calc.test.ts       ← vérifie reduceConsumed, computeAccountState, resolvePeriod
+├── tests/
+│   └── calc.test.ts       ← vérifie reduceConsumed, computeAccountState, resolvePeriod
+└── e2e/                   ← Playwright, contre le renderer en mode preview-shim
 ```
+
+> Les tests unitaires vivent à côté de ce qu'ils couvrent (`*.test.ts` dans `shared/`,
+> `electron/` et `src/`) ; `tests/` ne contient que la suite de calcul historique.
 
 ### Flux d'une saisie
 
@@ -148,24 +160,64 @@ interface Skill {
   provider: Provider;
   requiredSecrets: string[]; // → champs password dans le formulaire, stockés via OS keychain
   requiredParams: string[]; // → champs texte non sensibles (organizationId, projectId, …)
+  implemented: boolean; // → false = squelette : ne parle à aucune API, l'UI le dit
   fetch(ctx: SkillContext): Promise<SkillUsageReport>;
 }
 ```
 
+`implemented` est la pièce importante : **le connecteur déclare lui-même s'il collecte
+vraiment quelque chose**. Le drapeau traverse le pont IPC et c'est lui — jamais une liste
+de noms codée en dur — que lisent le formulaire de compte, la carte du tableau de bord et
+le journal des synchronisations. Le processus principal, lui, refuse d'appeler un
+squelette et inscrit le refus dans `skill_runs` : le jour où un appel HTTP est écrit, il
+suffit de passer le drapeau à `true` pour que les avertissements disparaissent partout.
+
 Connecteurs livrés :
 
-- `electron/skills/cursor.ts` — squelette + emplacement pour le call HTTP réel.
-- `electron/skills/claude.ts` — squelette pour l'Admin API Anthropic.
-- `electron/skills/openai.ts` — squelette pour l'Admin API OpenAI.
-- `electron/skills/generic.ts` — connecteur de démo qui renvoie une réponse normalisée vide (utile comme template).
+| Fichier                      | État                                                                                                                                                             |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `electron/skills/openai.ts`  | **Opérationnel** — appelle l'Admin API OpenAI via `fetchWithRetry`. Le champ agrégé peut ne pas correspondre à l'unité du quota, d'où `confidence: 'estimated'`. |
+| `electron/skills/cursor.ts`  | **Squelette** — l'emplacement de l'appel HTTP est écrit, l'appel ne l'est pas. Ne collecte rien.                                                                 |
+| `electron/skills/claude.ts`  | **Squelette** — l'URL de l'Admin API Anthropic est écrite, l'appel ne l'est pas. Ne collecte rien.                                                               |
+| `electron/skills/generic.ts` | **Modèle** à copier pour écrire un vrai fournisseur. Ne collecte rien (et ne doit pas être lancé : son `consumed: 0` deviendrait la référence de la période).    |
 
-Chaque appel est journalisé dans la table `skill_runs` (id, ok, error, JSON brut) — affiché plus tard dans une vue logs (à venir).
+Chaque appel — y compris un refus de squelette — est journalisé dans la table `skill_runs`
+(id, ok, error, JSON brut) et affiché par **« Journal des syncs »** (`src/views/SyncLog.tsx`),
+qui étiquette les connecteurs squelettes et les liste en tête.
 
 ### Ajouter un nouveau provider
 
 1. Créer `electron/skills/monfournisseur.ts` qui exporte `const monfournisseurSkill: Skill`.
-2. L'ajouter au tableau `SKILLS` dans `electron/skills/index.ts`.
-3. La skill apparaît immédiatement dans le formulaire de création de compte.
+2. Le déclarer `implemented: false` tant que l'appel HTTP n'est pas écrit — l'interface préviendra l'utilisateur toute seule.
+3. L'ajouter au tableau `SKILLS` dans `electron/skills/index.ts`.
+4. La skill apparaît immédiatement dans le formulaire de création de compte.
+5. Le mode « vite dev » a son propre registre (`src/previewShim.ts`) : y refléter les mêmes drapeaux.
+
+---
+
+## Sauvegarde et restauration
+
+**Sauvegarder (JSON)** écrit un fichier qui se déclare (`app`, `formatVersion`,
+`schemaVersion`) et que **Restaurer une sauvegarde** sait relire : comptes, règles de
+période, tags, seuils d'alerte et tous les relevés. **Exporter (CSV)** reste un vidage
+pour tableur — il perd les réglages et ne se réimporte pas (au delà des relevés d'un
+compte, via « ↑ Importer CSV » dans la vue détail).
+
+La restauration suit un ordre qui est la fonctionnalité elle-même (`electron/restore.ts`) :
+
+1. **Valider.** Le fichier d'une autre application, ou écrit avec un schéma de base
+   inconnu, est refusé **avant la première écriture** : rien n'est effacé, et la
+   confirmation n'est même pas demandée. Comptes et relevés sont reconstruits champ par
+   champ à partir d'une liste blanche — ce que le fichier contient en plus est jeté.
+2. **Confirmer.** Une base non vide n'est jamais remplacée sans un oui explicite, qui
+   annonce ce qu'il emporte (y compris le journal des synchronisations).
+3. **Écrire**, en une transaction : un échec en cours de route laisse la base intacte.
+
+**Les clés d'API ne sont jamais dans une sauvegarde.** Elles vivent dans le trousseau du
+système et n'en sortent pas : l'export ne les lit pas, l'import n'en écrit aucune, et une
+restauration élague celles des comptes qui disparaissent. Après restauration sur une autre
+machine, les secrets sont donc à ressaisir. `electron/backup-secrets.test.ts` le vérifie
+sur les deux formats.
 
 ---
 
@@ -175,6 +227,7 @@ Chaque appel est journalisé dans la table `skill_runs` (id, ok, error, JSON bru
 - Les secrets ne sont jamais lus côté renderer ; le main les déchiffre **au moment** de l'appel skill et les passe au connecteur.
 - Si `safeStorage.isEncryptionAvailable()` est `false` (Linux sans libsecret), `setSecret` rejette plutôt que d'écrire en clair.
 - Le fichier SQLite et `secrets.json` vivent dans `app.getPath('userData')` (path natif par OS).
+- **Aucune clé ne sort par l'export, aucune n'entre par l'import** — export et import ne connaissent que les comptes et les relevés, dont les champs sont recopiés un par un depuis une liste blanche. Une clé posée par accident sur un objet en mémoire ne sortirait pas davantage.
 
 ---
 
@@ -184,11 +237,20 @@ Chaque appel est journalisé dans la table `skill_runs` (id, ok, error, JSON bru
 npm run test
 ```
 
-Couverture actuelle (15 tests) :
+Couverture actuelle (88 tests unitaires, 8 tests Playwright) :
 
 - `reduceConsumed` : empty, latest cumulative, deltas après cumulative, reset après nouveau cumulative, hors-période ignoré.
 - `computeAccountState` : delta linéaire, indicateurs spec, over_quota, period_ended, tolérance "on_track".
 - `resolvePeriod` : weekly anchor, monthly anchor, monthly clamp jour 31, yearly clamp 29/02, custom 14 j.
+- `Storage` : aller-retour SQLite, cascade, persistance, migrations, `replaceAll` transactionnel, verrou de version de schéma.
+- `diagnoseCollection` : ce qu'annonce un compte contre ce que le connecteur sait faire ; deux tests interdisent une liste de noms en dur.
+- `parseBackup` / `buildBackup` : aller-retour, refus d'un fichier étranger ou d'un schéma inconnu, liste blanche, sauvegarde v1 relue.
+- **`backup-secrets`** : aucune clé d'API dans l'export (JSON et CSV), aucune écrite à l'import, ordre valider → confirmer → écrire.
+- `fetchWithRetry`, `evaluateAlerts`, file de notifications.
+
+```bash
+npm run e2e     # Playwright sur le renderer en mode preview-shim (sans Electron)
+```
 
 ---
 
@@ -204,19 +266,21 @@ L'architecture sépare strictement le code partagé (`shared/`) du code spécifi
 
 ## Roadmap (post-MVP)
 
+- **Écrire les appels HTTP de Cursor et de Claude** (les deux squelettes ci-dessus). Le jour où c'est fait, passer leur `implemented` à `true` : les avertissements disparaissent d'eux-mêmes.
 - Profils de consommation idéale non-linéaires (front-load / back-load).
 - Code-signing + GitHub Releases pour activer les mises à jour automatiques (`MISTER_QUOTA_AUTO_UPDATE=1` côté runtime ; voir `electron/updater.ts`).
 - OAuth pour Anthropic / OpenAI quand les fournisseurs publient leurs flows (`electron/skills/oauth.ts` est prêt).
 
 ### Déjà livré (waves 1 → 6)
 
-|            |                                                                                                                                                                                                                                    |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Wave 1** | ESLint + Prettier, GitHub Actions CI (Node 20.x / 22.x, lint + typecheck + test + build + e2e), tests d'intégration `Storage`.                                                                                                     |
-| **Wave 2** | Schema-versioning du `SkillUsageReport`, projection par régression linéaire (`projectedEndConsumptionRecent`, `projectedExhaustionDate`), comparaison inter-périodes (`previous`, `history`).                                      |
-| **Wave 3** | `Account.tags`, `syncIntervalMinutes`, `alertThresholdsPct` ; migration SQLite v2 forward-only ; tag chips + budget € agrégé sur le dashboard.                                                                                     |
-| **Wave 4** | Store Zustand, toaster custom, `ConfirmDialog`, `ErrorBoundary`, skeletons de chargement ; remplacement de tous les `alert()` / `confirm()` natifs. _(Les trois composants sont depuis passés au socle — voir « Socle famille ».)_ |
-| **Wave 5** | Import CSV (header-detection + erreurs par ligne), évaluateur d'alertes OS Notifications avec anti-spam intra-période, scheduler par compte, tray icon avec menu trié.                                                             |
-| **Wave 6** | `fetchWithRetry` (timeout + backoff exponentiel + Retry-After), Playwright e2e en mode preview-shim, scaffolds `electron-updater` (env-gated) et `runPkceFlow`.                                                                    |
+|            |                                                                                                                                                                                                                                       |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Wave 1** | ESLint + Prettier, GitHub Actions CI (Node 20.x / 22.x, lint + typecheck + test + build + e2e), tests d'intégration `Storage`.                                                                                                        |
+| **Wave 2** | Schema-versioning du `SkillUsageReport`, projection par régression linéaire (`projectedEndConsumptionRecent`, `projectedExhaustionDate`), comparaison inter-périodes (`previous`, `history`).                                         |
+| **Wave 3** | `Account.tags`, `syncIntervalMinutes`, `alertThresholdsPct` ; migration SQLite v2 forward-only ; tag chips + budget € agrégé sur le dashboard.                                                                                        |
+| **Wave 4** | Store Zustand, toaster custom, `ConfirmDialog`, `ErrorBoundary`, skeletons de chargement ; remplacement de tous les `alert()` / `confirm()` natifs. _(Les trois composants sont depuis passés au socle — voir « Socle famille ».)_    |
+| **Wave 5** | Import CSV (header-detection + erreurs par ligne), évaluateur d'alertes OS Notifications avec anti-spam intra-période, scheduler par compte, tray icon avec menu trié.                                                                |
+| **Wave 6** | `fetchWithRetry` (timeout + backoff exponentiel + Retry-After), Playwright e2e en mode preview-shim, scaffolds `electron-updater` (env-gated) et `runPkceFlow`.                                                                       |
+| **Wave 7** | `Skill.implemented` — les connecteurs déclarent s'ils collectent, l'interface le répète et le main refuse d'appeler un squelette ; sauvegarde JSON restaurable (valider → confirmer → transaction), sans jamais toucher au trousseau. |
 
 Licence : MIT.
