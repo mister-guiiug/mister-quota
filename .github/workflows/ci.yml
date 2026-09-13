@@ -17,15 +17,22 @@ jobs:
   build:
     name: typecheck · test · build
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node: ['20.x', '22.x']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node }}
+          # `.nvmrc` FAIT FOI, ET IL N'EST PLUS RECOPIÉ ICI. La matrice éprouvait
+          # 20.x et 22.x quand le dépôt développait sur 26.2.0 depuis #22 : la CI
+          # validait deux versions que personne ne faisait tourner, et aucune de
+          # celle qu'on utilise. Recopier un numéro, c'est le laisser diverger ;
+          # le lire rend l'écart impossible.
+          #
+          # UNE SEULE VERSION SUFFIT, contrairement au socle. Celui-ci publie
+          # `engines: >=22` et doit donc éprouver sa promesse en plus de son
+          # épingle. Ce dépôt-ci est `private`, sans `engines`, et embarque son
+          # propre Node dans Electron : il n'a aucun consommateur à qui promettre
+          # une compatibilité plus large, donc rien à éprouver hors de `.nvmrc`.
+          node-version-file: .nvmrc
           cache: 'npm'
           registry-url: 'https://npm.pkg.github.com'
           scope: '@mister-guiiug'
@@ -69,17 +76,18 @@ jobs:
   # LE SEUL CONTEXTE QUE LA PROTECTION DE BRANCHE EXIGE.
   #
   # Un job matriciel ne rapporte pas son `name:` : il en rapporte un PAR entrée,
-  # suffixé de la valeur de matrice. Exiger `typecheck · test · build (20.x)` et
-  # `(22.x)` nommément, c'est donc mettre un numéro de version dans une
-  # protection de branche — et geler toutes les PR le jour où la matrice bouge,
-  # le contexte attendu n'arrivant alors jamais. C'est arrivé sur dev-pwa-config
-  # les 10–13/09/2026 : trois jours de PR BLOCKED, franchies au seul
-  # contournement admin. Ce dépôt y est exposé dès maintenant — son `.nvmrc`
-  # dit 26.2.0 quand cette matrice teste encore 20.x et 22.x, donc l'alignement
-  # qui viendra ferait sauter les deux contextes exigés d'un coup.
+  # suffixé de la valeur de matrice. La protection de branche a longtemps exigé
+  # `typecheck · test · build (20.x)` et `(22.x)` nommément — donc un numéro de
+  # version DANS une protection de branche, qui gèle toutes les PR le jour où la
+  # matrice bouge, le contexte attendu n'arrivant alors jamais. C'est arrivé sur
+  # dev-pwa-config les 10–13/09/2026 : trois jours de PR BLOCKED, franchies au
+  # seul contournement admin.
   #
-  # Ce job n'a ni matrice ni version dans son nom : le contrat survit au
-  # prochain relèvement de Node.
+  # CE JOB EST CE QUI A RENDU L'ALIGNEMENT POSSIBLE. `build` a perdu sa matrice
+  # juste après, pour suivre `.nvmrc` : ses deux anciens contextes ont disparu
+  # d'un coup, et personne n'a eu à toucher à une protection de branche. C'est
+  # exactement le service que ce job rend, et il le rendra encore au prochain
+  # relèvement — il n'a ni matrice ni version dans son nom.
   #
   # `package desktop` est délibérément HORS du `needs:` — il ne s'exécute que
   # sur un tag `v*`, donc il est toujours sauté en PR et n'a rien à y attester.
