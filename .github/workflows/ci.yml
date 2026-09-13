@@ -65,3 +65,43 @@ jobs:
         with:
           name: dist-${{ matrix.os }}
           path: release/
+
+  # LE SEUL CONTEXTE QUE LA PROTECTION DE BRANCHE EXIGE.
+  #
+  # Un job matriciel ne rapporte pas son `name:` : il en rapporte un PAR entrée,
+  # suffixé de la valeur de matrice. Exiger `typecheck · test · build (20.x)` et
+  # `(22.x)` nommément, c'est donc mettre un numéro de version dans une
+  # protection de branche — et geler toutes les PR le jour où la matrice bouge,
+  # le contexte attendu n'arrivant alors jamais. C'est arrivé sur dev-pwa-config
+  # les 10–13/09/2026 : trois jours de PR BLOCKED, franchies au seul
+  # contournement admin. Ce dépôt y est exposé dès maintenant — son `.nvmrc`
+  # dit 26.2.0 quand cette matrice teste encore 20.x et 22.x, donc l'alignement
+  # qui viendra ferait sauter les deux contextes exigés d'un coup.
+  #
+  # Ce job n'a ni matrice ni version dans son nom : le contrat survit au
+  # prochain relèvement de Node.
+  #
+  # `package desktop` est délibérément HORS du `needs:` — il ne s'exécute que
+  # sur un tag `v*`, donc il est toujours sauté en PR et n'a rien à y attester.
+  # Tout autre job ajouté à ce fichier doit en revanche y entrer, sans quoi il
+  # serait vert pour GitHub sans que personne le regarde.
+  tout-vert:
+    name: Toute la CI est verte
+    needs: build
+    # SANS `always()`, UN `build` ROUGE FAIT SAUTER CE JOB — et GitHub compte un
+    # job sauté comme un check RÉUSSI. Le portail laisserait passer très
+    # exactement ce qu'il existe pour retenir.
+    if: always()
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Résultat de chaque job requis
+        env:
+          RESULTATS: ${{ toJSON(needs) }}
+        run: echo "$RESULTATS"
+
+      - name: Un seul job non vert suffit à faire rougir ce portail
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}
+        run: |
+          echo "::error::Un job requis n'est pas vert — voir les résultats ci-dessus."
+          exit 1
