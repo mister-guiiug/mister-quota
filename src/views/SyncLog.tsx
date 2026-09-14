@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { JSX } from 'react';
 import { formatDateTime } from '@mister-guiiug/dev-pwa-config/format';
 import type { SkillRunRow } from '@shared/ipc';
 import { useAppStore } from '../store';

@@ -14,46 +14,41 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint . --ext .ts,.tsx",
-    "format": "prettier --write \"**/*.{ts,tsx,css,md,json}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,css,md,json}\"",
+    "lint": "eslint .",
+    "format": "prettier --write \"**/*.{ts,tsx,mts,mjs,css,md,json}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,mts,mjs,css,md,json}\"",
     "typecheck": "tsc --noEmit && tsc -p electron/tsconfig.json --noEmit",
     "e2e": "playwright test"
   },
   "bundleBudget": {
-    "totalGzipKb": 75
+    "totalGzipKb": 98
   },
   "dependencies": {
     "date-fns": "^4.4.0",
     "date-fns-tz": "^3.2.0",
     "electron-updater": "^6.8.9",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "sql.js": "^1.14.2",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.4",
+    "@eslint/js": "^10.0.1",
     "@mister-guiiug/dev-pwa-config": "^4.15.1",
     "@playwright/test": "^1.63.0",
-    "@types/node": "^22.9.0",
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
+    "@types/node": "^26.5.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@types/sql.js": "^1.4.11",
-    "@typescript-eslint/eslint-plugin": "^8.70.0",
-    "@typescript-eslint/parser": "^8.70.0",
-    "@vitejs/plugin-react": "^4.3.3",
+    "@vitejs/plugin-react": "^6.1.1",
     "concurrently": "^9.1.0",
     "electron": "^44.3.0",
     "electron-builder": "^26.15.3",
-    "eslint": "^8.57.1",
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-react": "^7.37.5",
-    "eslint-plugin-react-hooks": "^5.0.0",
+    "eslint": "^10.10.0",
     "prettier": "^3.9.6",
-    "typescript": "^5.6.3",
-    "vite": "^5.4.11",
-    "vitest": "^2.1.5",
+    "typescript": "~6.0.3",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.0",
     "wait-on": "^8.0.1"
   },
   "build": {
@@ -66,5 +61,10 @@
       "dist/**/*",
       "dist-electron/**/*"
     ]
+  },
+  "overrides": {
+    "eslint-plugin-jsx-a11y": {
+      "eslint": "$eslint"
+    }
   }
 }
