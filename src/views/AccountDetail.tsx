@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { JSX } from 'react';
 import type { Account, AccountState, EntryMode } from '@shared/types';
 import { formatDateTime } from '@mister-guiiug/dev-pwa-config/format';
 import { fmtDays, fmtPct, fmtUnitForAccount } from '../format';

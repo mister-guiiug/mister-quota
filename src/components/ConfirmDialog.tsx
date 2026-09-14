@@ -14,6 +14,7 @@
 //    avec le composant.
 
 import { useEffect, useState } from 'react';
+import type { JSX } from 'react';
 import { ConfirmDialog } from '@mister-guiiug/dev-pwa-config/react/confirm-dialog';
 
 interface ConfirmRequest {

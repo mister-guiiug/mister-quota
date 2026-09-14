@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import type { JSX } from 'react';
 import type { Account, AccountState } from '@shared/types';
 import { collectionWarning } from '@shared/collection';
 import { fmtDays, fmtPct, fmtUnit, fmtUnitForAccount } from '../format';

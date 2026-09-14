@@ -125,11 +125,15 @@ export class Storage {
     const wasmDir = path.dirname(wasmPath);
     this.SQL = await initSqlJs({ locateFile: (f: string) => path.join(wasmDir, f) });
 
+    // Premier lancement : le fichier n'existe pas encore, et c'est normal —
+    // `buffer` reste `null` et on ouvre une base vide. Le `catch` est vide
+    // exprès : réassigner `null` ici ne servait à rien (ESLint 10 le signale en
+    // `no-useless-assignment`), la variable l'est déjà.
     let buffer: Buffer | null = null;
     try {
       buffer = await fs.readFile(this.dbPath);
     } catch {
-      buffer = null;
+      // rien à faire : absence de fichier = base neuve
     }
     this.db = buffer ? new this.SQL.Database(new Uint8Array(buffer)) : new this.SQL.Database();
     this.migrate();

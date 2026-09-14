@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { JSX } from 'react';
 import { ToastViewport } from '@mister-guiiug/dev-pwa-config/react/toast';
 import { dismissToast, setToastsPaused, subscribeToasts, type ToastEntry } from '../toast';
 
