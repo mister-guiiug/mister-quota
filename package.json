@@ -34,7 +34,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@mister-guiiug/dev-pwa-config": "^4.16.0",
+    "@mister-guiiug/dev-pwa-config": "^4.16.1",
     "@playwright/test": "^1.63.0",
     "@types/node": "^26.5.1",
     "@types/react": "^19.3.0",
