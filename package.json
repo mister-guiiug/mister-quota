@@ -34,7 +34,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@mister-guiiug/dev-pwa-config": "^4.16.1",
+    "@mister-guiiug/dev-pwa-config": "^4.19.0",
     "@playwright/test": "^1.63.0",
     "@types/node": "^26.5.1",
     "@types/react": "^19.3.0",
@@ -45,10 +45,10 @@
     "electron": "^44.3.0",
     "electron-builder": "^26.15.3",
     "eslint": "^10.10.0",
-    "prettier": "^3.9.6",
+    "prettier": "^3.9.7",
     "typescript": "~6.0.3",
     "vite": "^8.3.0",
-    "vitest": "^5.0.0",
+    "vitest": "^5.0.1",
     "wait-on": "^8.0.1"
   },
   "build": {
