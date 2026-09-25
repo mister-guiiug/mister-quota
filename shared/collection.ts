@@ -1,12 +1,12 @@
 // Diagnostic de collecte — fonction pure, partagée renderer ↔ main.
 //
 // Le README annonce deux façons de suivre sa consommation : la saisie manuelle
-// et la collecte automatique par connecteur. Deux des connecteurs livrés sont
-// des squelettes : un compte réglé en « automatique » sur l'un d'eux ne collecte
-// RIEN. Ce module transforme cet état de fait — déclaré par le connecteur via
-// `Skill.implemented` — en un diagnostic affichable, pour que l'interface le
-// dise partout plutôt que de laisser l'utilisateur attendre des chiffres qui ne
-// viendront jamais.
+// et la collecte automatique par connecteur. Un connecteur peut être un
+// squelette (aujourd'hui `generic`, le modèle à copier) : un compte réglé en
+// « automatique » sur lui ne collecte RIEN. Ce module transforme cet état de
+// fait — déclaré par le connecteur via `Skill.implemented` — en un diagnostic
+// affichable, pour que l'interface le dise partout plutôt que de laisser
+// l'utilisateur attendre des chiffres qui ne viendront jamais.
 //
 // Aucune liste de noms de connecteurs ici : seul le drapeau compte.
 

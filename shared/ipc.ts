@@ -19,7 +19,7 @@ export interface SkillRunRow {
 // connecteur est un squelette (formulaire, carte du tableau de bord, journal).
 export type SkillInfo = Pick<
   Skill,
-  'id' | 'label' | 'provider' | 'requiredSecrets' | 'requiredParams' | 'implemented'
+  'id' | 'label' | 'provider' | 'requiredSecrets' | 'requiredParams' | 'optionalParams' | 'implemented'
 >;
 
 export interface ApiBridge {

@@ -289,12 +289,13 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle(IPC.listSkills, () =>
-    SKILLS.map(({ id, label, provider, requiredSecrets, requiredParams, implemented }) => ({
+    SKILLS.map(({ id, label, provider, requiredSecrets, requiredParams, optionalParams, implemented }) => ({
       id,
       label,
       provider,
       requiredSecrets,
       requiredParams,
+      optionalParams,
       implemented,
     })),
   );

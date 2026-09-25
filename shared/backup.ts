@@ -274,9 +274,10 @@ function parsePeriodRule(value: unknown, where: string): PeriodRule {
 }
 
 // `skillParams` est le SEUL champ libre d'un compte. Par contrat il ne contient
-// que des paramètres non sensibles (`Skill.requiredParams` : identifiant
-// d'organisation, de projet…) : on n'accepte donc qu'un objet plat de valeurs
-// primitives, jamais une structure imbriquée.
+// que des paramètres non sensibles (`Skill.requiredParams` et
+// `optionalParams` : identifiant de projet, adresse d'un membre…) : on
+// n'accepte donc qu'un objet plat de valeurs primitives, jamais une structure
+// imbriquée.
 function parseSkillParams(value: unknown): Record<string, unknown> | undefined {
   if (!isRecord(value)) return undefined;
   const out: Record<string, unknown> = {};
