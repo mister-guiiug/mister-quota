@@ -240,6 +240,21 @@ export function AccountForm({ initial, onSaved, onCancel }: Props): JSX.Element 
             />
           </label>
         ))}
+        {/* Paramètres que le connecteur sait laisser vides (Cursor : `email`,
+            pour ne compter qu'un membre de l'équipe). Même stockage que les
+            requis — `skillParams`, non secret. */}
+        {selectedSkill?.optionalParams?.map((p) => (
+          <label key={p}>
+            {p}{' '}
+            <span className="muted" style={{ fontSize: 11 }}>
+              (facultatif)
+            </span>
+            <input
+              value={skillParams[p] ?? ''}
+              onChange={(e) => setSkillParams({ ...skillParams, [p]: e.target.value })}
+            />
+          </label>
+        ))}
         {selectedSkill?.requiredSecrets.map((s) => (
           <label key={s}>
             {s}{' '}

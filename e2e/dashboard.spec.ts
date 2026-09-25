@@ -53,14 +53,15 @@ test('la confirmation de suppression est nommée et ne détruit pas sur Entrée'
   await expect(page.getByText('Claude Pro')).toBeVisible();
 });
 
-// Le shim d'aperçu reproduit le registre réel : « Claude (Anthropic) » est un
-// squelette, « OpenAI » ne l'est pas. Un compte branché sur le premier annonce
-// une collecte automatique qui n'arrivera jamais — c'est ce que ces deux tests
-// vérifient bout en bout, du drapeau `implemented` jusqu'au pixel.
+// Le shim d'aperçu reproduit le registre réel : `generic`, le modèle à copier,
+// est le seul squelette qui reste ; Claude, Cursor et OpenAI collectent. Un
+// compte branché sur le premier annonce une collecte automatique qui n'arrivera
+// jamais — c'est ce que ces deux tests vérifient bout en bout, du drapeau
+// `implemented` jusqu'au pixel.
 test('la carte d’un compte branché sur un connecteur squelette le dit', async ({ page }) => {
   await page.goto('/');
-  const claude = page.locator('.card').filter({ hasText: 'Claude Pro' });
-  await expect(claude.getByText(/squelette/)).toBeVisible();
+  const mistral = page.locator('.card').filter({ hasText: 'Mistral' });
+  await expect(mistral.getByText(/squelette/)).toBeVisible();
 
   // Le compte servi par un vrai connecteur, lui, n'affiche rien.
   const openai = page.locator('.card').filter({ hasText: 'OpenAI Team' });
@@ -71,15 +72,55 @@ test('« Synchroniser maintenant » sur un squelette échoue franchement et lais
   page,
 }) => {
   await page.goto('/');
-  await page.getByRole('heading', { name: /^Claude Pro/ }).click();
+  await page.getByRole('heading', { name: /^Mistral/ }).click();
   await page.getByRole('button', { name: 'Synchroniser maintenant' }).click();
   await expect(page.getByText(/squelette/).first()).toBeVisible();
 
   await page.getByRole('button', { name: '← Dashboard' }).click();
   await page.getByRole('button', { name: 'Journal des syncs' }).click();
   const row = page.locator('tbody tr').first();
-  await expect(row).toContainText('claude');
+  await expect(row).toContainText('generic');
   await expect(row.getByText('squelette', { exact: true })).toBeVisible();
+});
+
+// Paramètres facultatifs d'un connecteur : le formulaire les propose sous les
+// requis, et ils sont enregistrés avec eux (`skillParams`). Claude, lui, ne
+// réclame plus d'identifiant d'organisation.
+test('le formulaire propose les paramètres facultatifs du connecteur et les conserve', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '+ Nouveau compte' }).click();
+
+  // Le `<label>` englobe le `<select>` : son texte contient aussi celui des
+  // options, d'où l'ancre plutôt qu'une égalité.
+  const skill = page.getByLabel(/^Skill/);
+  // Plus aucun squelette parmi les vrais fournisseurs : seul le modèle l'est.
+  await expect(skill.locator('option')).toHaveText([
+    '— aucune —',
+    'Cursor',
+    'Claude (Anthropic)',
+    'OpenAI',
+    'Generic (modèle — ne collecte rien) — squelette',
+  ]);
+
+  await page.getByLabel('Nom', { exact: true }).fill('Cursor — équipe dev');
+  await skill.selectOption('cursor');
+  await expect(page.getByLabel(/^apiKey/)).toBeVisible();
+  await page.getByLabel('email (facultatif)').fill('dev@exemple.fr');
+  await page.getByRole('button', { name: 'Enregistrer' }).click();
+  await expect(page.getByText('Compte « Cursor — équipe dev » enregistré')).toBeVisible();
+
+  // Rouvert en édition, le compte a gardé son paramètre facultatif.
+  await page
+    .locator('.card')
+    .filter({ hasText: 'Cursor — équipe dev' })
+    .getByRole('button', { name: 'Éditer' })
+    .click();
+  await expect(page.getByLabel('email (facultatif)')).toHaveValue('dev@exemple.fr');
+
+  await page.getByLabel(/^Skill/).selectOption('claude');
+  await expect(page.getByLabel(/^adminApiKey/)).toBeVisible();
+  await expect(page.getByLabel('email (facultatif)')).toHaveCount(0);
+  await expect(page.getByLabel('organizationId')).toHaveCount(0);
 });
 
 // Sauvegarde ↔ restauration. Le shim d'aperçu utilise le MÊME format et le même

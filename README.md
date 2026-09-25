@@ -2,7 +2,7 @@
 
 Application desktop multiplateforme (Windows / macOS / Linux) pour suivre la consommation de plusieurs comptes IA (Cursor, Claude, OpenAI, …), avec affichage de l'**avance / retard** par rapport à la consommation idéale jusqu'à la prochaine date d'anniversaire.
 
-> **État réel de la collecte automatique.** Un seul connecteur appelle vraiment une API (OpenAI). Ceux de Cursor et de Claude sont des **squelettes** : l'emplacement de l'appel HTTP est écrit, l'appel ne l'est pas. Les comptes qui en dépendent se saisissent **à la main** — l'application le dit maintenant à l'écran (formulaire, carte, journal) plutôt que de laisser attendre des chiffres qui ne viendront pas. Voir « Skills (connecteurs) ».
+> **État réel de la collecte automatique.** Trois connecteurs appellent vraiment une API : OpenAI, Claude et Cursor. Ceux de Claude et de Cursor lisent des **API d'administration** : il faut une organisation Anthropic (clé Admin) ou une équipe Cursor (clé d'administration d'équipe). Un abonnement individuel — Claude Pro, Cursor Pro… — n'y a pas accès et se saisit **à la main**. Le modèle `generic` reste un squelette, et l'application le dit à l'écran (formulaire, carte, journal). Voir « Skills (connecteurs) ».
 
 ---
 
@@ -44,8 +44,8 @@ Prérequis : Node 20+ (testé avec 25.2). Aucun toolchain natif requis.
 
 ```bash
 npm install
-npm run test            # 88 tests (domaine, stockage, sauvegarde, connecteurs)
-npm run e2e             # 8 tests Playwright sur l'interface
+npm run test            # 144 tests (domaine, stockage, sauvegarde, connecteurs)
+npm run e2e             # 9 tests Playwright sur l'interface
 npm run build           # build du renderer (Vite → dist/) + budget de bundle
 npm run dev:electron    # lance Vite + Electron en mode dev
 ```
@@ -99,7 +99,7 @@ mister-quota/
 │   ├── restore.ts         ← restauration : valider → confirmer → écrire
 │   ├── secrets.ts         ← SecretsStore (safeStorage)
 │   ├── log.ts             ← Logger fichier rotatif
-│   └── skills/            ← connecteurs (cursor, claude, openai, generic)
+│   └── skills/            ← connecteurs (cursor, claude, openai, generic) + common.ts
 ├── src/                   ← renderer React
 │   ├── App.tsx            ← navigation 5 vues + sauvegarde / restauration
 │   ├── store.ts           ← store Zustand (états, relevés, registre des connecteurs)
@@ -159,7 +159,8 @@ interface Skill {
   label: string;
   provider: Provider;
   requiredSecrets: string[]; // → champs password dans le formulaire, stockés via OS keychain
-  requiredParams: string[]; // → champs texte non sensibles (organizationId, projectId, …)
+  requiredParams: string[]; // → champs texte non sensibles, à renseigner (projectId, …)
+  optionalParams?: string[]; // → champs texte non sensibles que le connecteur sait laisser vides
   implemented: boolean; // → false = squelette : ne parle à aucune API, l'UI le dit
   fetch(ctx: SkillContext): Promise<SkillUsageReport>;
 }
@@ -177,17 +178,75 @@ Connecteurs livrés :
 | Fichier                      | État                                                                                                                                                             |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `electron/skills/openai.ts`  | **Opérationnel** — appelle l'Admin API OpenAI via `fetchWithRetry`. Le champ agrégé peut ne pas correspondre à l'unité du quota, d'où `confidence: 'estimated'`. |
-| `electron/skills/cursor.ts`  | **Squelette** — l'emplacement de l'appel HTTP est écrit, l'appel ne l'est pas. Ne collecte rien.                                                                 |
-| `electron/skills/claude.ts`  | **Squelette** — l'URL de l'Admin API Anthropic est écrite, l'appel ne l'est pas. Ne collecte rien.                                                               |
+| `electron/skills/cursor.ts`  | **Opérationnel** — lit l'API d'administration d'équipe de Cursor (dépense, requêtes, jetons) via `fetchWithRetry`. Voir ci-dessous.                              |
+| `electron/skills/claude.ts`  | **Opérationnel** — lit l'API Usage & Cost d'Anthropic (jetons, coûts) via `fetchWithRetry`. Voir ci-dessous.                                                     |
 | `electron/skills/generic.ts` | **Modèle** à copier pour écrire un vrai fournisseur. Ne collecte rien (et ne doit pas être lancé : son `consumed: 0` deviendrait la référence de la période).    |
 
 Chaque appel — y compris un refus de squelette — est journalisé dans la table `skill_runs`
 (id, ok, error, JSON brut) et affiché par **« Journal des syncs »** (`src/views/SyncLog.tsx`),
 qui étiquette les connecteurs squelettes et les liste en tête.
 
+### Claude et Cursor : clé, plan, unités
+
+Les deux connecteurs lisent une **API d'administration** : la clé à créer n'est pas une clé
+d'API ordinaire, et un abonnement individuel n'y a pas accès. Ce qu'ils font de la même façon
+(`User-Agent`, centimes, jours UTC, messages d'erreur, rapport) vit dans
+`electron/skills/common.ts`. Leurs messages d'erreur disent quoi corriger — mauvais type de clé
+(401/403), plan ou endpoint indisponible (404), limite de débit (429) — et ne recopient jamais la
+clé.
+
+#### Claude (Anthropic) — API Usage & Cost
+
+- **Clé** (champ `adminApiKey`) : une clé **Admin d'organisation**, `sk-ant-admin01-…`. Seul un
+  membre de rôle _admin_ peut la créer, dans
+  [Console › Settings › Admin keys](https://platform.claude.com/settings/admin-keys). Une clé
+  d'API de workspace — la clé ordinaire — est refusée.
+- **Plan** : une organisation de la Console Claude. L'API n'existe pas pour les comptes
+  individuels, et Claude Enterprise (claude.ai) passe par une autre API, que ce connecteur ne lit
+  pas. Un abonnement Claude Pro ou Max se suit à la main.
+- **Paramètres** : aucun. L'ancien `organizationId` n'est plus demandé ; un compte qui le porte
+  encore se synchronise normalement, le paramètre est ignoré.
+
+| Unité du compte   | Ce que mesure le relevé                                                                                                                                                                                                                                                                       |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tokens            | `GET /v1/organizations/usage_report/messages` : toutes les catégories de jetons — entrée non cachée, écriture de cache (1 h et 5 min), lecture de cache, sortie. Les recherches web ne sont pas des jetons.                                                                                   |
+| Devise            | `GET /v1/organizations/cost_report` : le coût, en **dollars** (l'API compte en centimes d'USD). Sur un compte tenu dans une autre devise, le montant reste en dollars, **non converti**, et le relevé est `estimated`. Les coûts Priority Tier n'y figurent pas (limite documentée de l'API). |
+| Requêtes, Crédits | Non fournis par l'API : la synchronisation échoue avec un message explicite, jamais un chiffre de remplacement.                                                                                                                                                                               |
+
+#### Cursor — API d'administration d'équipe
+
+- **Clé** (champ `apiKey`) : une clé d'API **d'administration d'équipe**, qu'un administrateur
+  crée dans le tableau de bord de l'équipe ([cursor.com/dashboard](https://cursor.com/dashboard)
+  › API Keys), avec la portée `admin:*` que la documentation de Cursor exige pour cette API —
+  même si le connecteur ne fait que lire.
+- **Plan** : une équipe. La documentation de Cursor range l'API d'administration sous
+  « Enterprise teams » et réserve une partie de ses données au plan Enterprise : un 403 le
+  signale.
+- **Paramètre facultatif** : `email`, pour ne compter qu'un membre de l'équipe (vide : toute
+  l'équipe).
+
+| Unité du compte | Ce que mesure le relevé                                                                                                                                                                                                                                                                                                                              |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Devise          | `POST /teams/spend` : la dépense du **cycle de facturation en cours** (`overallSpendCents`, à défaut `spendCents`), en dollars. Si le cycle ne s'ouvre pas le même jour que la période du compte, le relevé est `estimated` et sa référence donne la date d'ouverture du cycle. Une adresse `email` absente de l'équipe est une erreur, pas un zéro. |
+| Requêtes        | `POST /teams/daily-usage-data` : les requêtes facturables (`subscriptionIncludedReqs + usageBasedReqs + apiKeyReqs`), jour par jour, par tranches de 30 jours au plus. Cursor agrège ces chiffres à l'heure : synchroniser plus d'une fois par heure n'apporte rien.                                                                                 |
+| Tokens          | `POST /teams/filtered-usage-events` : les jetons (entrée, sortie, écriture et lecture de cache) de chaque événement, sur 30 pages de 1 000 événements au plus — au delà, le total est partiel et `estimated`. Un appel qui n'est pas facturé au jeton ne porte pas de compteur : il est omis, et le relevé devient `estimated`.                      |
+| Crédits         | Non fourni par l'API : erreur explicite.                                                                                                                                                                                                                                                                                                             |
+
+#### Exact ou estimé
+
+Chaque relevé porte `confidence: 'exact' | 'estimated'`, et sa référence (`raw.reference`,
+visible dans le JSON du journal) dit pourquoi il est estimé :
+
+- **Fuseau** : les rapports d'Anthropic et le décompte quotidien de Cursor rangent leurs chiffres
+  en jours UTC. Une période qui ne s'ouvre pas à minuit UTC — tout fuseau autre qu'UTC — est
+  comptée sur les jours UTC les plus proches : le total est décalé de l'écart de fuseau.
+- **Devise** : un montant en dollars posé sur un compte tenu dans une autre devise.
+- **Cursor** : cycle de facturation décalé de la période, plafond de pages atteint, événements
+  sans compteur de jetons.
+
 ### Ajouter un nouveau provider
 
-1. Créer `electron/skills/monfournisseur.ts` qui exporte `const monfournisseurSkill: Skill`.
+1. Créer `electron/skills/monfournisseur.ts` qui exporte `const monfournisseurSkill: Skill`. Ses paramètres non secrets vont dans `requiredParams`, ou dans `optionalParams` s'il sait s'en passer : le formulaire affiche les deux.
 2. Le déclarer `implemented: false` tant que l'appel HTTP n'est pas écrit — l'interface préviendra l'utilisateur toute seule.
 3. L'ajouter au tableau `SKILLS` dans `electron/skills/index.ts`.
 4. La skill apparaît immédiatement dans le formulaire de création de compte.
@@ -237,7 +296,7 @@ sur les deux formats.
 npm run test
 ```
 
-Couverture actuelle (88 tests unitaires, 8 tests Playwright) :
+Couverture actuelle (144 tests unitaires, 9 tests Playwright) :
 
 - `reduceConsumed` : empty, latest cumulative, deltas après cumulative, reset après nouveau cumulative, hors-période ignoré.
 - `computeAccountState` : delta linéaire, indicateurs spec, over_quota, period_ended, tolérance "on_track".
@@ -246,6 +305,7 @@ Couverture actuelle (88 tests unitaires, 8 tests Playwright) :
 - `diagnoseCollection` : ce qu'annonce un compte contre ce que le connecteur sait faire ; deux tests interdisent une liste de noms en dur.
 - `parseBackup` / `buildBackup` : aller-retour, refus d'un fichier étranger ou d'un schéma inconnu, liste blanche, sauvegarde v1 relue.
 - **`backup-secrets`** : aucune clé d'API dans l'export (JSON et CSV), aucune écrite à l'import, ordre valider → confirmer → écrire.
+- **Connecteurs Claude et Cursor**, sur un `fetch` simulé — aucun appel réel : en-têtes et authentification, pagination, tranches de 30 jours, centimes → dollars, chaque unité, cas `estimated` (fuseau, devise, cycle, plafond), erreurs 401/403/404/429/réseau sans fuite de la clé, rétrocompatibilité d'`organizationId`.
 - `fetchWithRetry`, `evaluateAlerts`, file de notifications.
 
 ```bash
@@ -266,7 +326,6 @@ L'architecture sépare strictement le code partagé (`shared/`) du code spécifi
 
 ## Roadmap (post-MVP)
 
-- **Écrire les appels HTTP de Cursor et de Claude** (les deux squelettes ci-dessus). Le jour où c'est fait, passer leur `implemented` à `true` : les avertissements disparaissent d'eux-mêmes.
 - Profils de consommation idéale non-linéaires (front-load / back-load).
 - Code-signing + GitHub Releases pour activer les mises à jour automatiques (`MISTER_QUOTA_AUTO_UPDATE=1` côté runtime ; voir `electron/updater.ts`).
 - OAuth pour Anthropic / OpenAI quand les fournisseurs publient leurs flows (`electron/skills/oauth.ts` est prêt).
@@ -282,5 +341,6 @@ L'architecture sépare strictement le code partagé (`shared/`) du code spécifi
 | **Wave 5** | Import CSV (header-detection + erreurs par ligne), évaluateur d'alertes OS Notifications avec anti-spam intra-période, scheduler par compte, tray icon avec menu trié.                                                                |
 | **Wave 6** | `fetchWithRetry` (timeout + backoff exponentiel + Retry-After), Playwright e2e en mode preview-shim, scaffolds `electron-updater` (env-gated) et `runPkceFlow`.                                                                       |
 | **Wave 7** | `Skill.implemented` — les connecteurs déclarent s'ils collectent, l'interface le répète et le main refuse d'appeler un squelette ; sauvegarde JSON restaurable (valider → confirmer → transaction), sans jamais toucher au trousseau. |
+| **Wave 8** | Connecteurs Claude (API Usage & Cost) et Cursor (API d'administration d'équipe) opérationnels ; paramètres facultatifs de connecteur (`Skill.optionalParams`) saisis dans le formulaire.                                              |
 
 Licence : MIT.

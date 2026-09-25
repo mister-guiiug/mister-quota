@@ -9,9 +9,9 @@ import type { ImportBackupResult, SkillRunRow } from '@shared/ipc';
 import type { Account, AccountState, UsageEntry } from '@shared/types';
 
 // Le registre côté aperçu doit refléter `electron/skills/index.ts` — mêmes
-// identifiants, mêmes libellés, MÊME drapeau `implemented`. Un aperçu qui
-// annoncerait des connecteurs opérationnels alors que l'app n'en a qu'un
-// referait exactement le mensonge qu'on est en train de corriger.
+// identifiants, mêmes libellés, mêmes paramètres, MÊME drapeau `implemented`.
+// Un aperçu qui annoncerait un squelette comme opérationnel, ou l'inverse,
+// mentirait sur ce que fait l'application.
 const PREVIEW_SKILLS = [
   {
     id: 'cursor',
@@ -19,15 +19,17 @@ const PREVIEW_SKILLS = [
     provider: 'cursor',
     requiredSecrets: ['apiKey'],
     requiredParams: [],
-    implemented: false,
+    optionalParams: ['email'],
+    implemented: true,
   },
   {
     id: 'claude',
     label: 'Claude (Anthropic)',
     provider: 'claude',
     requiredSecrets: ['adminApiKey'],
-    requiredParams: ['organizationId'],
-    implemented: false,
+    requiredParams: [],
+    optionalParams: [],
+    implemented: true,
   },
   {
     id: 'openai',
@@ -35,6 +37,7 @@ const PREVIEW_SKILLS = [
     provider: 'openai',
     requiredSecrets: ['adminApiKey'],
     requiredParams: [],
+    optionalParams: [],
     implemented: true,
   },
   {
@@ -43,6 +46,7 @@ const PREVIEW_SKILLS = [
     provider: 'other',
     requiredSecrets: [],
     requiredParams: [],
+    optionalParams: [],
     implemented: false,
   },
 ] as const;
@@ -68,6 +72,9 @@ function seed(): void {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     },
+    // Un abonnement Claude Pro se suit à la main : l'API Usage & Cost que lit
+    // le connecteur Claude n'existe que pour les organisations de la Console,
+    // pas pour les comptes individuels.
     {
       id: 'acc-claude',
       name: 'Claude Pro',
@@ -75,9 +82,7 @@ function seed(): void {
       periodRule: { type: 'monthly', dayOfMonth: 15, timezone: 'Europe/Paris' },
       quota: 100,
       unit: 'credits',
-      collection: 'hybrid',
-      skillId: 'claude',
-      skillParams: { organizationId: 'org-demo' },
+      collection: 'manual',
       tolerancePct: 5,
       tags: ['perso'],
       alertThresholdsPct: [80, 100],
@@ -100,8 +105,26 @@ function seed(): void {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     },
+    // Un fournisseur sans connecteur, branché sur le modèle `generic` : c'est
+    // le squelette qui reste au registre, et l'interface doit le dire.
+    {
+      id: 'acc-mistral',
+      name: 'Mistral (connecteur à écrire)',
+      provider: 'other',
+      periodRule: { type: 'monthly', dayOfMonth: 1, timezone: 'Europe/Paris' },
+      quota: 2000,
+      unit: 'requests',
+      collection: 'auto',
+      skillId: 'generic',
+      tolerancePct: 3,
+      tags: ['perso'],
+      alertThresholdsPct: [80, 100],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
   ];
-  // Seed one cumulative reading per account.
+  // Un relevé cumulatif par compte — sauf celui du squelette, qui n'a jamais
+  // rien collecté et que personne n'a encore saisi.
   entries = [
     {
       id: 'e1',
@@ -117,7 +140,7 @@ function seed(): void {
       recordedAt: new Date().toISOString(),
       value: 45,
       mode: 'cumulative',
-      source: 'skill',
+      source: 'manual',
     },
     {
       id: 'e3',
@@ -173,6 +196,7 @@ export function installPreviewShim(): void {
         ...s,
         requiredSecrets: [...s.requiredSecrets],
         requiredParams: [...s.requiredParams],
+        optionalParams: [...s.optionalParams],
       })),
     setSecret: async () => {
       /* no-op in preview */

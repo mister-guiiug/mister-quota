@@ -167,6 +167,11 @@ export interface Skill {
   requiredSecrets: string[];
   // Declares which non-secret params are needed (e.g. workspace id).
   requiredParams: string[];
+  // Paramètres non secrets FACULTATIFS : le formulaire les propose, vides par
+  // défaut, et le connecteur sait s'en passer (Cursor : `email`, pour ne
+  // compter qu'un membre de l'équipe). Le champ est lui-même facultatif : un
+  // connecteur écrit avant lui reste valide sans y toucher.
+  optionalParams?: string[];
   // Does this connector actually collect anything?
   //
   // `false` = squelette : `fetch` ne parle à aucune API et ne rendra jamais de
