@@ -2,7 +2,7 @@
 
 Application desktop multiplateforme (Windows / macOS / Linux) pour suivre la consommation de plusieurs comptes IA (Cursor, Claude, OpenAI, …), avec affichage de l'**avance / retard** par rapport à la consommation idéale jusqu'à la prochaine date d'anniversaire.
 
-> **État réel de la collecte automatique.** Trois connecteurs appellent vraiment une API : OpenAI, Claude et Cursor. Ceux de Claude et de Cursor lisent des **API d'administration** : il faut une organisation Anthropic (clé Admin) ou une équipe Cursor (clé d'administration d'équipe). Un abonnement individuel — Claude Pro, Cursor Pro… — n'y a pas accès et se saisit **à la main**. Le modèle `generic` reste un squelette, et l'application le dit à l'écran (formulaire, carte, journal). Voir « Skills (connecteurs) ».
+> **État réel de la collecte automatique.** Trois connecteurs appellent une API : OpenAI, Claude et Cursor. Seuls ceux de Claude et de Cursor en lisent la réponse de façon éprouvée : celui d'OpenAI additionne un champ provisoire (`n_tokens_total`), sans pagination ni test, et reste à vérifier avant de s'y fier. Ceux de Claude et de Cursor lisent des **API d'administration** : il faut une organisation Anthropic (clé Admin) ou une équipe Cursor (clé d'administration d'équipe). Un abonnement individuel — Claude Pro, Cursor Pro… — n'y a pas accès et se saisit **à la main**. Le modèle `generic` reste un squelette, et l'application le dit à l'écran (formulaire, carte, journal). Voir « Skills (connecteurs) ».
 
 ---
 
@@ -18,9 +18,11 @@ Application desktop multiplateforme (Windows / macOS / Linux) pour suivre la con
 
 ### Socle famille
 
-L'app consomme `@mister-guiiug/dev-pwa-config` **sans monter la stack PWA du socle**
-(React 19, Vite 8, Vitest 4, ESLint 9) : seuls ses modules indépendants du framework
-sont utilisés, d'où `legacy-peer-deps=true` dans `.npmrc`.
+L'app consomme `@mister-guiiug/dev-pwa-config` **sans sa partie PWA** (ni service
+worker, ni manifeste, ni Tailwind). Elle suit le contrat de peers du socle (React 19,
+Vite 8, Vitest 5, ESLint 10) et en prend la config ESLint `eslint-react`, Prettier,
+`format`, `logger`, le budget de bundle et trois composants React. `.npmrc` ne déclare
+que le registre du scope `@mister-guiiug`.
 
 Elle importe aussi **`components.css`**, l'habillage des composants `/react`, alors
 qu'elle n'a **pas Tailwind** — ce qui était jusqu'ici la raison de s'en passer. La
@@ -40,7 +42,7 @@ Composants pris au socle : `ObservabilityBoundary` (`src/App.tsx`), `ConfirmDial
 
 ## Démarrage rapide
 
-Prérequis : Node 20+ (testé avec 25.2). Aucun toolchain natif requis.
+Prérequis : Node 22.13 ou plus récent, hors 23 et 25 que Vitest 5 écarte (la CI éprouve la version de `.nvmrc`, 26.10.0), et un jeton GitHub de portée `read:packages` dans son `~/.npmrc`, car GitHub Packages l'exige même pour un paquet public. Aucun toolchain natif requis.
 
 ```bash
 npm install
@@ -50,7 +52,7 @@ npm run build           # build du renderer (Vite → dist/) + budget de bundle
 npm run dev:electron    # lance Vite + Electron en mode dev
 ```
 
-Pour packager l'app de bureau (DMG / NSIS / AppImage) :
+Aucun installateur n'est publié à ce jour : le dépôt n'a ni tag ni release, et le job `package desktop` de la CI ne part jamais (il attend un tag `v*`, que les déclencheurs de `ci.yml` n'écoutent pas). Pour packager l'app de bureau soi-même (DMG / NSIS / AppImage) :
 
 ```bash
 npm run build:electron
@@ -106,7 +108,7 @@ mister-quota/
 │   ├── views/
 │   │   ├── Dashboard.tsx  ← liste des comptes avec barre de progression et indicateurs
 │   │   ├── AccountForm.tsx← création / édition (CRUD comptes + secrets)
-│   │   ├── AccountDetail.tsx ← courbe réel vs idéal + relevés + sync now
+│   │   ├── AccountDetail.tsx ← graphique idéal vs consommé actuel (segment, sans les relevés) + relevés + sync now
 │   │   └── SyncLog.tsx    ← journal des exécutions de connecteurs (table skill_runs)
 │   ├── format.ts          ← helpers d'affichage (unités, %, dates)
 │   ├── previewShim.ts     ← backend in-memory pour le mode "vite dev" sans Electron
@@ -158,7 +160,7 @@ interface Skill {
   id: string;
   label: string;
   provider: Provider;
-  requiredSecrets: string[]; // → champs password dans le formulaire, stockés via OS keychain
+  requiredSecrets: string[]; // → champs password dans le formulaire, chiffrés via safeStorage dans secrets.json
   requiredParams: string[]; // → champs texte non sensibles, à renseigner (projectId, …)
   optionalParams?: string[]; // → champs texte non sensibles que le connecteur sait laisser vides
   implemented: boolean; // → false = squelette : ne parle à aucune API, l'UI le dit
@@ -175,12 +177,12 @@ suffit de passer le drapeau à `true` pour que les avertissements disparaissent 
 
 Connecteurs livrés :
 
-| Fichier                      | État                                                                                                                                                             |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `electron/skills/openai.ts`  | **Opérationnel** — appelle l'Admin API OpenAI via `fetchWithRetry`. Le champ agrégé peut ne pas correspondre à l'unité du quota, d'où `confidence: 'estimated'`. |
-| `electron/skills/cursor.ts`  | **Opérationnel** — lit l'API d'administration d'équipe de Cursor (dépense, requêtes, jetons) via `fetchWithRetry`. Voir ci-dessous.                              |
-| `electron/skills/claude.ts`  | **Opérationnel** — lit l'API Usage & Cost d'Anthropic (jetons, coûts) via `fetchWithRetry`. Voir ci-dessous.                                                     |
-| `electron/skills/generic.ts` | **Modèle** à copier pour écrire un vrai fournisseur. Ne collecte rien (et ne doit pas être lancé : son `consumed: 0` deviendrait la référence de la période).    |
+| Fichier                      | État                                                                                                                                                                                                                                                                                                       |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `electron/skills/openai.ts`  | **À terminer** : appelle l'API Usage d'OpenAI via `fetchWithRetry`, mais additionne un champ provisoire (`n_tokens_total`, que son commentaire demande de remplacer) sans suivre la pagination, et aucun test ne couvre sa lecture. Un relevé à 0 remettrait la période à zéro, comme le ferait `generic`. |
+| `electron/skills/cursor.ts`  | **Opérationnel** — lit l'API d'administration d'équipe de Cursor (dépense, requêtes, jetons) via `fetchWithRetry`. Voir ci-dessous.                                                                                                                                                                        |
+| `electron/skills/claude.ts`  | **Opérationnel** — lit l'API Usage & Cost d'Anthropic (jetons, coûts) via `fetchWithRetry`. Voir ci-dessous.                                                                                                                                                                                               |
+| `electron/skills/generic.ts` | **Modèle** à copier pour écrire un vrai fournisseur. Ne collecte rien (et ne doit pas être lancé : son `consumed: 0` deviendrait la référence de la période).                                                                                                                                              |
 
 Chaque appel — y compris un refus de squelette — est journalisé dans la table `skill_runs`
 (id, ok, error, JSON brut) et affiché par **« Journal des syncs »** (`src/views/SyncLog.tsx`),
@@ -234,8 +236,11 @@ clé.
 
 #### Exact ou estimé
 
-Chaque relevé porte `confidence: 'exact' | 'estimated'`, et sa référence (`raw.reference`,
-visible dans le JSON du journal) dit pourquoi il est estimé :
+Chaque rapport de connecteur porte `confidence: 'exact' | 'estimated'`, et sa référence
+(`raw.reference`) dit pourquoi il est estimé. Les deux sont conservés dans la colonne
+`report_json` de `skill_runs`, mais l'interface ne les montre pas : le journal tronque le
+JSON à 120 caractères, et la liste des relevés ne distingue pas l'estimé de l'exact. Les
+causes d'un relevé estimé :
 
 - **Fuseau** : les rapports d'Anthropic et le décompte quotidien de Cursor rangent leurs chiffres
   en jours UTC. Une période qui ne s'ouvre pas à minuit UTC — tout fuseau autre qu'UTC — est
@@ -259,8 +264,10 @@ visible dans le JSON du journal) dit pourquoi il est estimé :
 **Sauvegarder (JSON)** écrit un fichier qui se déclare (`app`, `formatVersion`,
 `schemaVersion`) et que **Restaurer une sauvegarde** sait relire : comptes, règles de
 période, tags, seuils d'alerte et tous les relevés. **Exporter (CSV)** reste un vidage
-pour tableur — il perd les réglages et ne se réimporte pas (au delà des relevés d'un
-compte, via « ↑ Importer CSV » dans la vue détail).
+pour tableur : il perd les réglages et ne se réimporte pas. « ↑ Importer CSV », dans la
+vue détail, lit des relevés (date, valeur, mode, commentaire) pour le compte ouvert, sans
+trier par `account_id` : un export de plusieurs comptes y verserait tous leurs relevés,
+il faut donc le filtrer d'abord.
 
 La restauration suit un ordre qui est la fonctionnalité elle-même (`electron/restore.ts`) :
 
@@ -272,8 +279,10 @@ La restauration suit un ordre qui est la fonctionnalité elle-même (`electron/r
    annonce ce qu'il emporte (y compris le journal des synchronisations).
 3. **Écrire**, en une transaction : un échec en cours de route laisse la base intacte.
 
-**Les clés d'API ne sont jamais dans une sauvegarde.** Elles vivent dans le trousseau du
-système et n'en sortent pas : l'export ne les lit pas, l'import n'en écrit aucune, et une
+**Les clés d'API ne sont jamais dans une sauvegarde.** Elles sont chiffrées par
+`safeStorage` (clé gardée par Keychain, DPAPI ou libsecret) et rangées dans
+`secrets.json`, à côté de la base mais hors d'elle ; elles ne sont déchiffrées que pour
+l'appel au fournisseur. L'export ne les lit pas, l'import n'en écrit aucune, et une
 restauration élague celles des comptes qui disparaissent. Après restauration sur une autre
 machine, les secrets sont donc à ressaisir. `electron/backup-secrets.test.ts` le vérifie
 sur les deux formats.
@@ -306,7 +315,7 @@ Couverture actuelle (144 tests unitaires, 9 tests Playwright) :
 - `parseBackup` / `buildBackup` : aller-retour, refus d'un fichier étranger ou d'un schéma inconnu, liste blanche, sauvegarde v1 relue.
 - **`backup-secrets`** : aucune clé d'API dans l'export (JSON et CSV), aucune écrite à l'import, ordre valider → confirmer → écrire.
 - **Connecteurs Claude et Cursor**, sur un `fetch` simulé — aucun appel réel : en-têtes et authentification, pagination, tranches de 30 jours, centimes → dollars, chaque unité, cas `estimated` (fuseau, devise, cycle, plafond), erreurs 401/403/404/429/réseau sans fuite de la clé, rétrocompatibilité d'`organizationId`.
-- `fetchWithRetry`, `evaluateAlerts`, file de notifications.
+- `fetchWithRetry`, la règle des seuils d'alerte (recopiée dans le test : `evaluateAlerts`, qui importe `electron`, n'est pas exécuté), file de notifications.
 
 ```bash
 npm run e2e     # Playwright sur le renderer en mode preview-shim (sans Electron)
@@ -328,19 +337,19 @@ L'architecture sépare strictement le code partagé (`shared/`) du code spécifi
 
 - Profils de consommation idéale non-linéaires (front-load / back-load).
 - Code-signing + GitHub Releases pour activer les mises à jour automatiques (`MISTER_QUOTA_AUTO_UPDATE=1` côté runtime ; voir `electron/updater.ts`).
-- OAuth pour Anthropic / OpenAI quand les fournisseurs publient leurs flows (`electron/skills/oauth.ts` est prêt).
+- OAuth pour Anthropic / OpenAI quand les fournisseurs publient leurs flows (`electron/skills/oauth.ts` n'est qu'une ébauche : il attend la redirection avant d'ouvrir la fenêtre d'autorisation, et rien ne l'appelle).
 
-### Déjà livré (waves 1 → 6)
+### Déjà livré (waves 1 → 8)
 
-|            |                                                                                                                                                                                                                                       |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Wave 1** | ESLint + Prettier, GitHub Actions CI (Node 20.x / 22.x, lint + typecheck + test + build + e2e), tests d'intégration `Storage`.                                                                                                        |
-| **Wave 2** | Schema-versioning du `SkillUsageReport`, projection par régression linéaire (`projectedEndConsumptionRecent`, `projectedExhaustionDate`), comparaison inter-périodes (`previous`, `history`).                                         |
-| **Wave 3** | `Account.tags`, `syncIntervalMinutes`, `alertThresholdsPct` ; migration SQLite v2 forward-only ; tag chips + budget € agrégé sur le dashboard.                                                                                        |
-| **Wave 4** | Store Zustand, toaster custom, `ConfirmDialog`, `ErrorBoundary`, skeletons de chargement ; remplacement de tous les `alert()` / `confirm()` natifs. _(Les trois composants sont depuis passés au socle — voir « Socle famille ».)_    |
-| **Wave 5** | Import CSV (header-detection + erreurs par ligne), évaluateur d'alertes OS Notifications avec anti-spam intra-période, scheduler par compte, tray icon avec menu trié.                                                                |
-| **Wave 6** | `fetchWithRetry` (timeout + backoff exponentiel + Retry-After), Playwright e2e en mode preview-shim, scaffolds `electron-updater` (env-gated) et `runPkceFlow`.                                                                       |
-| **Wave 7** | `Skill.implemented` — les connecteurs déclarent s'ils collectent, l'interface le répète et le main refuse d'appeler un squelette ; sauvegarde JSON restaurable (valider → confirmer → transaction), sans jamais toucher au trousseau. |
-| **Wave 8** | Connecteurs Claude (API Usage & Cost) et Cursor (API d'administration d'équipe) opérationnels ; paramètres facultatifs de connecteur (`Skill.optionalParams`) saisis dans le formulaire.                                              |
+|            |                                                                                                                                                                                                                                                                                |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Wave 1** | ESLint + Prettier, GitHub Actions CI (Node de `.nvmrc`, format + lint + typecheck + test + build + e2e, portail « Toute la CI est verte »), tests d'intégration `Storage`.                                                                                                     |
+| **Wave 2** | Schema-versioning du `SkillUsageReport`, projection par régression linéaire (`projectedEndConsumptionRecent`, `projectedExhaustionDate`), comparaison inter-périodes (`previous`, `history`).                                                                                  |
+| **Wave 3** | `Account.tags`, `syncIntervalMinutes`, `alertThresholdsPct` ; migration SQLite v2 forward-only ; tag chips + budget agrégé des comptes en devise sur le dashboard (affiché dans la devise du premier compte, sans conversion).                                                 |
+| **Wave 4** | Store Zustand, toaster custom, `ConfirmDialog`, `ErrorBoundary`, skeletons de chargement ; remplacement de tous les `alert()` / `confirm()` natifs. _(Les trois composants sont depuis passés au socle — voir « Socle famille ».)_                                             |
+| **Wave 5** | Import CSV (header-detection + erreurs par ligne), évaluateur d'alertes OS Notifications avec anti-spam intra-période, scheduler par compte, tray icon avec menu trié.                                                                                                         |
+| **Wave 6** | `fetchWithRetry` (timeout + backoff exponentiel + Retry-After), Playwright e2e en mode preview-shim, scaffolds `electron-updater` (env-gated) et `runPkceFlow`.                                                                                                                |
+| **Wave 7** | `Skill.implemented` — les connecteurs déclarent s'ils collectent, l'interface le répète et le main refuse d'appeler un squelette ; sauvegarde JSON restaurable (valider → confirmer → transaction), sans jamais écrire de clé (elle n'efface que celles des comptes disparus). |
+| **Wave 8** | Connecteurs Claude (API Usage & Cost) et Cursor (API d'administration d'équipe) opérationnels ; paramètres facultatifs de connecteur (`Skill.optionalParams`) saisis dans le formulaire.                                                                                       |
 
 Licence : MIT.
