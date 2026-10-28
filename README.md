@@ -42,7 +42,7 @@ Composants pris au socle : `ObservabilityBoundary` (`src/App.tsx`), `ConfirmDial
 
 ## Démarrage rapide
 
-Prérequis : Node 22.13 ou plus récent, hors 23 et 25 que Vitest 5 écarte (la CI éprouve la version de `.nvmrc`, 26.10.0), et un jeton GitHub de portée `read:packages` dans son `~/.npmrc`, car GitHub Packages l'exige même pour un paquet public. Aucun toolchain natif requis.
+Prérequis : Node 22.13 ou plus récent, hors 23 et 25 que Vitest 5 écarte (la CI éprouve la version de `.nvmrc`, 26.13.0), et un jeton GitHub de portée `read:packages` dans son `~/.npmrc`, car GitHub Packages l'exige même pour un paquet public. Aucun toolchain natif requis.
 
 ```bash
 npm install
