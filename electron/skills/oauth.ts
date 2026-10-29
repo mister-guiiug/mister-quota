@@ -39,6 +39,18 @@ export interface TokenSet {
   raw: Record<string, unknown>;
 }
 
+/**
+ * Échappe une valeur avant de l'écrire dans la page de retour. Le paramètre
+ * `error` vient de l'URL : n'importe quelle page peut ouvrir
+ * `http://127.0.0.1:<port>/callback?error=<script>…`, et la valeur était
+ * recopiée telle quelle dans le HTML (XSS réfléchie, CodeQL js/reflected-xss).
+ */
+export function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (c) =>
+    c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '"' ? '&quot;' : '&#39;',
+  );
+}
+
 function base64url(buf: Buffer): string {
   return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
@@ -64,7 +76,7 @@ export async function runPkceFlow(cfg: PkceConfig): Promise<TokenSet> {
         const err = u.searchParams.get('error');
         res.setHeader('content-type', 'text/html; charset=utf-8');
         if (err) {
-          res.end(`<h1>Échec d'authentification: ${err}</h1>`);
+          res.end(`<h1>Échec d'authentification: ${escapeHtml(err)}</h1>`);
           server.close();
           reject(new Error(`OAuth error: ${err}`));
           return;
