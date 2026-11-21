@@ -123,7 +123,13 @@ export class Storage {
     this.dbPath = path.join(userDataDir, 'mister-quota.sqlite');
     const wasmPath = resolveWasmPath();
     const wasmDir = path.dirname(wasmPath);
-    this.SQL = await initSqlJs({ locateFile: (f: string) => path.join(wasmDir, f) });
+    // `useOldExtensionFunctions` est obligatoire dans les types depuis @types/sql.js 1.16.
+    // `false` : les fonctions natives de SQLite, défaut annoncé de la prochaine majeure de
+    // sql.js. Aucune requête d'ici n'appelle les anciennes (stdev, padl, charindex…).
+    this.SQL = await initSqlJs({
+      locateFile: (f: string) => path.join(wasmDir, f),
+      useOldExtensionFunctions: false,
+    });
 
     // Premier lancement : le fichier n'existe pas encore, et c'est normal —
     // `buffer` reste `null` et on ouvre une base vide. Le `catch` est vide
